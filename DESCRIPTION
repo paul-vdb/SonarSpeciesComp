@@ -1,0 +1,15 @@
+Package: SonarSpeciesComp
+Title: Estimate species composition from sonar lengths and test fishery counts
+Version: 0.1.0
+Author: Paul van Dam-Bates
+Maintainer: Paul van Dam-Bates <paul.vandambates@gmail.com>
+Description: This package includes methods to estimate species composition
+    from sonar measured lengths.  It can account for different sampling
+    designs, beam spreading, observation error, and incorporate counts
+    from test fishery.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Imports: 
+    RTMB
