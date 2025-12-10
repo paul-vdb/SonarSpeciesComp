@@ -1,0 +1,49 @@
+---
+title: "Estimating Species Composition"
+author: "Paul van Dam-Bates"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+description: >
+  An overview of how to estimate species composition using `SonarSpeciesComp`.
+vignette: >
+  %\VignetteIndexEntry{Using nimbleQuad}
+  %\VignetteEngine{knitr::rmarkdown}
+  \usepackage[utf8]{inputenc}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  echo= FALSE,
+  comment = "#>",
+  fig.width = 6,
+  fig.asp = 0.618,
+  out.width = "70%",
+  fig.align = "center"
+)
+```
+
+## Introduction
+
+The R package `SonarSpeciesComp` is intended to estimate species composition for fish observed by the hydroacoustic monitoring programs at either Qualark (Fisheries and Oceans Canada), or Mission (Pacific Salmon Commission)
+
+The basic idea is to use hydroacoustic length measurements combined with nearby test fishery counts to identify the proportion of each species migrating each day. A day at Mission runs from 5:00 - 4:59 and at Qualark it is 00:00 - 23:59. 
+
+
+## Data Types
+
+### Sonar Counts
+
+Every hour hydroacoustic counts are taken in each sonar bin using an ARIS 1800. At Qualark the sonar is rolled 35 degrees to be able to enumerate all fish along a steep bank. At Mission, the right bank is relatively flat and a single aim with no roll is sufficient for full coverage. However, on the left bank, two aims are used within the first 10 m to enumerate all fish. At both sites, counts are done by bank, and 10 m distance bins. Qualark completes counts out to 30 m, or 3 bins on each bank, and Mission out to 50 m. Counts are labelled as Up and Down for the number of fish counted as swimming upstream or down stream.
+
+The package requires count data as a dataframe with columns `Date`, `Hour`, `SonarAim`, `SonarBin`, `Bank`, `Up`, `Down`.
+
+```{r}
+df <- data.frame(Date = as.Date("2023-09-01", format = "%Y-%m-%d"), Hour = 5, SonarAim = "Aim1", SonarBin = "Bin1", Bank = "Left Bank", Up = 5, Down = 3)
+df
+```
+
+Qualark does not have a `SonarAim` and if this is missing, we will assume `"Aim1"` for all values.
+
+### Sonar Lengths
+

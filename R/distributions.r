@@ -1,5 +1,6 @@
 ## Distributions to be used for species composition:
 
+## Compute likelihood and posterior probabilities of mixture model.
 calcPostProb <- function(x, mu, sigma, prob, wgts = NULL){
   n <- length(x)
   K <- length(mu)
@@ -18,6 +19,31 @@ calcPostProb <- function(x, mu, sigma, prob, wgts = NULL){
   list(postp = postp, ll = ll)
 }
 
+dTestFishery <- function(x, q, ){
+  if(is.matrix(x)){
+    ndays <- nrow(x)
+    nspp <- ncol(x)
+  }else{ 
+    ndays <- 1
+    nspp <- length(x)
+    x <- matrix(x, nrow = 1, ncol = nspp)
+  }
+  for( d in 1:ndays ){
+      idx <- which(tfgrp$day == d)
+      nd <- tfgrp$pcount[idx]
+      Nd <- sum(nd)
+      if(Nd == 0) next
+      pd <- numeric(nq)
+      for( k in 1:nq ) pd[k] <- sum(p[idx,k+(K-nq)]*nd/Nd)              
+      prob <- (q*pd)/sum(q*pd)
+      negll <- negll - testwgts[d]*dmultinom(testcounts[d,], prob = prob, size = sum(testcounts[d,]), log = TRUE)
+    }
+}
+
+dmultinom(c(1,4), c(0.5,0.5), size = 5)
+
+
+## Compute likelihood conditional on posterior probabilities of mixture model.
 dnormEM <- function(x, mu, sigma, p, postp, wgts = NULL, log){
     K <- length(mu)
     n <- length(x)
@@ -29,14 +55,43 @@ dnormEM <- function(x, mu, sigma, p, postp, wgts = NULL, log){
     logobj
 }
 
-dresident <- dnorm
-dpink <- dnorm
-dsockeye <- dnorm
-dchinook <- dnorm
+## Negative log likelihood for obtaining confidence intervals:
+## To be used with MakeADFun after fitting EM.
+## This function will have jacobian options, 
+## as it is what would be called by tmbstan.
+negLL <- function(pars){
+  getAll(pars, pars_fixed, warn = FALSE)
+  p <- expitM(logitp)
+  logp <- log(p)
+  sigma <- exp(logsigma)
 
-dmixture <- function(x, mu, sigma, spp == NULL, log){
-  if(is.null(spp)) return(dnorm(x, mu, sigma, log))
-  for( i in seq_along() ){
-    dresident(x, mu)
+  K <- length(sigma)
+  n <- length(dataList$x)
+
+  negll <- 0
+  for( i in 1:n ){
+      logprob <- logp + dnorm(dataList$x[i], mu, sigma, log = TRUE)
+      maxlp <- max(logprob)
+      negll <- negll - dataList$wgts[i]*(log(sum(exp(logprob - maxlp))) + maxlp)
   }
+  negll
+}
+
+## Place holders for penalty/prior terms:
+prior_beta <- function(beta){
+  0
+}
+prior_sigma0 <- function(sigma0){
+  0
+}
+## This prior includes chinook jack and adult.
+prior_sigma <- function(sigma){
+  0
+}
+prior_q <- function(q){
+  0
+}
+## This prior includes chinook jack and adult.
+prior_mu <- function(sigma0){
+  0
 }

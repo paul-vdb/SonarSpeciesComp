@@ -1,10 +1,13 @@
 ## EM Algorithm Solver:
 library(RTMB)
 library(mixtools)
+source("utils.r")
+source("distributions.r")
 
 EMstep <- function(pars_outer){
   getAll(pars_outer, pars_fixed, dataList, warn = FALSE)
-
+  ll <- 0
+  
   ## Parameter Processing
   Kchin <- length(muChin)
   K0 <- length(mu)
@@ -18,7 +21,8 @@ EMstep <- function(pars_outer){
   ## Set up proportions
   np <- nrow(logitp)
   p <- matrix(0, nrow = np, ncol = K)
-  pChin <- expitM(logitpChin)           ## This could be Jack/Adult or Jack/Small Adult/Large Adult.
+  ## This could be Jack/Adult or Jack/Small Adult/Large Adult. 
+  pChin <- expitM(logitpChin)           ## Cooked in assumption that behaviour is same for J + A. pJack < pAdult (can set this via prior).
   for( i in 1:np ) {
     p[i,1:(K0+1)] <- expitM(logitp[i,])  
     p[i, (K0+1):K ] <- pChin*p[i, (K0+1)]
@@ -30,10 +34,28 @@ EMstep <- function(pars_outer){
   ## It is expected to contain an intercept term.
   Ladj <- L + beta %*% t(X)
 
+  ## Prior or penalty terms:
+  ll <- ll + prior_beta(beta) + prior_sigma0(exp(logsigma0)) + prior_sigma(exp(logsigma)) + prior_mu(mu) ## Add prior to q.
+  
   ## Calculate Posterior Probabilities + log likelihood:
   outerLL <- calcPostProb(x = Ladj, mu = mu, sigma = sigma, prob = pobs, wgts = wgts)
   postProb <- outerLL$postp
-  ll <- outerLL$ll
+  ll <- ll + outerLL$ll
+
+  ## Test fishery component:
+  if(includeTF){
+    for( d in 1:ndays ){
+      idx <- which(tfgrp$day == d)
+      nd <- tfgrp$pcount[idx]
+      Nd <- sum(nd)
+      if(Nd == 0) next
+      pd <- numeric(nq)
+      for( k in 1:nq ) pd[k] <- sum(p[idx,k+(K-nq)]*nd/Nd)              
+      prob <- (q*pd)/sum(q*pd)
+      negll <- negll - testwgts[d]*dmultinom(testcounts[d,], prob = prob, size = sum(testcounts[d,]), log = TRUE)
+    }
+  }
+
 
   ## Inner Objective Function
   ## ------------------------------------------
@@ -55,7 +77,7 @@ EMstep <- function(pars_outer){
     np <- nrow(logitp)
     p <- matrix(0, nrow = np, ncol = K)
     ## This could be Jack/Adult or Jack/Small Adult/Large Adult. 
-    pChin <- expitM(logitpChin)           ## Cooked in assumption that behaviour is same for J + A.
+    pChin <- expitM(logitpChin)           ## Cooked in assumption that behaviour is same for J + A. pJack < pAdult (can set this via prior).
     for( i in 1:np ) {
       p[i,1:(K0+1)] <- expitM(logitp[i,])  
       p[i, (K0+1):K ] <- pChin*p[i, (K0+1)]
@@ -77,23 +99,6 @@ EMstep <- function(pars_outer){
   c(pars_opt, ll)
 }
 
-negLL <- function(pars){
-  getAll(pars, pars_fixed, warn = FALSE)
-  p <- expitM(logitp)
-  logp <- log(p)
-  sigma <- exp(logsigma)
-
-  K <- length(sigma)
-  n <- length(dataList$x)
-
-  negll <- 0
-  for( i in 1:n ){
-      logprob <- logp + dnorm(dataList$x[i], mu, sigma, log = TRUE)
-      maxlp <- max(logprob)
-      negll <- negll - dataList$wgts[i]*(log(sum(exp(logprob - maxlp))) + maxlp)
-  }
-  negll
-}
 
 x <- rnormmix(100, c(0.2, 0.1, 0.7), c(0, 5, 10), c(2, 2.5, 3.5)) # simulated data
 dataList <- list(x = x, wgts = rep(1, 100))
