@@ -4,6 +4,10 @@ library(mixtools)
 source("utils.r")
 source("distributions.r")
 
+predLogitProb <- function(alpha, X){
+  
+}
+
 EMstep <- function(pars_outer){
   getAll(pars_outer, pars_fixed, dataList, warn = FALSE)
   ll <- 0
@@ -18,14 +22,22 @@ EMstep <- function(pars_outer){
   logsigma_ <- c(logsigma, logsigmaChin)
   sigma <- sqrt(exp(2*logsigma_) + exp(2*logsigma0))
 
-  ## Set up proportions
-  np <- nrow(logitp)
+  ## Set up proportions. alpha parameter for predicting proportions. 
+  ## Xalpha is a list of design matrices for each species.
+  np <- nrow(Xalpha)
+  logitp <- matrix(0, nrow = np, ncol = K0+1) ## +1 is Chinook.
+  for( i in 1:K0 ){
+    logitp[,i] <- Xalpha[,alphaindex[i,1]:alphaindex[i,2]] %*% alpha[alphaindex[i,1]:alphaindex[i,2]]
+  }
+  logitpChin <- matrix(0, nrow = np, ncol = Kchin)
+  ## Default XalphaChin should be intercept.
+  for( i in 1:(Kchin-1) ){
+    logitpChin[,i] <- XalphaChin[,alphaChinindex[i,1]:alphaChinindex[i,2]] %*% alphaChin[alphaChinindex[i,1]:alphaChinindex[i,2]]
+  }
   p <- matrix(0, nrow = np, ncol = K)
-  ## This could be Jack/Adult or Jack/Small Adult/Large Adult. 
-  pChin <- expitM(logitpChin)           ## Cooked in assumption that behaviour is same for J + A. pJack < pAdult (can set this via prior).
   for( i in 1:np ) {
-    p[i,1:(K0+1)] <- expitM(logitp[i,])  
-    p[i, (K0+1):K ] <- pChin*p[i, (K0+1)]
+    p[i, 1:(K0+1)] <- expitM(logitp[i,])  
+    p[i, (K0+1):K ] <- expitM(logitpChin[i,])*p[i, (K0+1)]
   }
   pobs <- p[grp,]
 

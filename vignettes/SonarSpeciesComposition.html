@@ -12,7 +12,7 @@
 
 <meta name="author" content="Paul van Dam-Bates" />
 
-<meta name="date" content="2025-12-09" />
+<meta name="date" content="2025-12-10" />
 
 <title>Estimating Species Composition</title>
 
@@ -239,7 +239,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 <h1 class="title toc-ignore">Estimating Species Composition</h1>
 <h4 class="author">Paul van Dam-Bates</h4>
-<h4 class="date">2025-12-09</h4>
+<h4 class="date">2025-12-10</h4>
 
 
 
@@ -267,24 +267,33 @@ coverage. However, on the left bank, two aims are used within the first
 10 m distance bins. Qualark completes counts out to 30 m, or 3 bins on
 each bank, and Mission out to 50 m. Counts are labelled as Up and Down
 for the number of fish counted as swimming upstream or down stream.</p>
-<p>The package requires count data as a dataframe with columns
-<code>Date</code>, <code>Hour</code>, <code>SonarAim</code>,
-<code>SonarBin</code>, <code>Bank</code>, <code>Up</code>,
-<code>Down</code>.</p>
-<pre><code>#&gt;         Date Hour SonarAim SonarBin      Bank Up Down
-#&gt; 1 2023-09-01    5     Aim1     Bin1 Left Bank  5    3</code></pre>
+<p>The package requires count data as a data frame with columns that are
+slightly specific for each site.</p>
 <ol style="list-style-type: decimal">
-<li><code>Date</code></li>
-<li><code>Hour</code></li>
-<li><code>SonarAim</code></li>
-<li><code>SonarBin</code></li>
-<li><code>Bank</code></li>
-<li><code>Up</code></li>
-<li><code>Down</code></li>
+<li>Mission requirements:</li>
 </ol>
+<pre><code>#&gt;         Date MissionDate Hour SonarCode SonarAim SonarBin      Bank Up Down
+#&gt; 1 2023-09-01  2023-09-02    5        A1     Aim1     Bin1 Left Bank  5    3
+#&gt;   Duration
+#&gt; 1        5</code></pre>
+<ol start="2" style="list-style-type: decimal">
+<li>Qualark requirements:</li>
+</ol>
+<pre><code>#&gt;         Date Hour SonarBin      Bank Up Down Duration
+#&gt; 1 2023-09-01    5     Bin1 Left Bank  5    3       20</code></pre>
 </div>
 <div id="sonar-lengths" class="section level3">
 <h3>Sonar Lengths</h3>
+<ol style="list-style-type: decimal">
+<li>Mission requirements:</li>
+</ol>
+<pre><code>#&gt;         Date MissionDate Hour SonarCode SonarAim SonarBin      Bank R.m L.cm
+#&gt; 1 2023-09-01  2023-09-02    5        A1     Aim1     Bin1 Left Bank 6.3 55.1</code></pre>
+<ol start="2" style="list-style-type: decimal">
+<li>Qualark requirements:</li>
+</ol>
+<pre><code>#&gt;         Date Hour SonarBin      Bank R.m L.cm
+#&gt; 1 2023-09-01    5     Bin1 Left Bank 6.3 55.1</code></pre>
 </div>
 </div>
 

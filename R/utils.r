@@ -10,6 +10,35 @@ logitM <- function(p){
   K <- length(p)
   log(p[1:(K-1)]/p[K])
 }
+## Stick Breaking Transformation
+stickBreakTransform <- function(p){
+  K <- length(p) - 1
+  runningSum <- 0
+  x <- numeric(K)
+  x[1] <- log(p[1]/(1-p[1]))
+  for(i in 2:K){
+    runningSum <- runningSum + p[i-1]
+    pi <- p[i]/(1-runningSum)
+    x[i] <- log(pi/(1-pi))
+  }
+  x
+}
+
+## Inverse Stick Breaking Transformation
+inverseStickBreakTransform <- function(x){
+  K <- length(x) + 1
+  p <- numeric(K)
+  p[1] <- 1/(1+exp(-x[1]))
+  if(K > 2){
+    runningSum <- 0
+    for( i in 2:(K-1) ){
+      runningSum <- runningSum + p[i-1]
+      p[i] <- (1-runningSum)*1/(1+exp(-x[i]))
+    }
+  }
+  p[K] <- 1-sum(p[1:(K-1)])
+  p
+}
 
 ## Transformations for Prior Distributions
 ## This one if prior is given in terms of p.

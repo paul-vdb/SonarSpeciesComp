@@ -40,9 +40,6 @@ dTestFishery <- function(x, q, ){
     }
 }
 
-dmultinom(c(1,4), c(0.5,0.5), size = 5)
-
-
 ## Compute likelihood conditional on posterior probabilities of mixture model.
 dnormEM <- function(x, mu, sigma, p, postp, wgts = NULL, log){
     K <- length(mu)
