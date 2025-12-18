@@ -19,7 +19,7 @@ calcPostProb <- function(x, mu, sigma, prob, wgts = NULL){
   list(postp = postp, ll = ll)
 }
 
-dTestFishery <- function(x, q, ){
+dTestFishery <- function(x, q ){
   if(is.matrix(x)){
     ndays <- nrow(x)
     nspp <- ncol(x)
