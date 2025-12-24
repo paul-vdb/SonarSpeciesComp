@@ -17,7 +17,12 @@ speciesCompSummary <- R6Class("SpeciesComp",
     parameters = list(),
     parsInit = list(),
     parsFixed = list(),
-    optimControl = list(tol = 1e-8, maxiters = 1000, relDiff = FALSE, verbose = FALSE),    
+    estimatedParameters = NULL,
+    estimatedDailyProportions = NULL,
+    estimatedHourlyProportions = NULL,
+    simData = NULL,
+    priorDist = NULL,
+    optimControl = list(tolerance = 1e-8, maxiters = 1000, relativeDifference = FALSE, verbose = FALSE),    
     
     initialize = function(species = c("jackChinook", "sockeye", "adultchinook"), estDate = NULL, ndays = 1, site = NULL) {
       if(missing(site)) stop("Need to initialize with a site = 'Mission' or 'Qualark'")
@@ -44,13 +49,13 @@ speciesCompSummary <- R6Class("SpeciesComp",
       }
       if(!is.null(ndays)) self$ndays <- ndays
     },
-    controlOptimization = function(tol = NULL, maxiters = NULL, relDiff = NULL, verbose = NULL){
-      if(!is.null(tol)) self$optimControl$tol <- tol
+    controlOptimization = function(tolerance = NULL, maxiters = NULL, relativeDifference = NULL, verbose = NULL){
+      if(!is.null(tolerance)) self$optimControl$tolerance <- tolerance
       if(!is.null(maxiters)) self$optimControl$maxiters <- maxiters
-      if(!is.null(relDiff)) self$optimControl$relDiff <- relDiff
+      if(!is.null(relativeDifference)) self$optimControl$relativeDifference<- relativeDifference
       if(!is.null(verbose)) self$optimControl$verbose <- verbose
     },
-    processData = function(sonarCounts, sonarLengths, testFisheryCounts = NULL, includeTangled = TRUE){
+    processData = function(sonarCounts, sonarLengths, testFisheryCounts = NULL, includeTangled = TRUE, dropN = 2){
       if(!is.null(testFisheryCounts)){
         self$includeTestFishery <- TRUE
       }
@@ -58,7 +63,7 @@ speciesCompSummary <- R6Class("SpeciesComp",
         processQualarkLengths(self, sonarcounts, sonarlengths)
       }
       if(self$site == "Mission") {
-        processMissionLengths(self, sonarCounts, sonarLengths)
+        processMissionLengths(self, sonarCounts, sonarLengths, dropN)
         processWhonnockCounts(self, testFisheryCounts, tangled = includeTangled)
       }
     },
@@ -69,14 +74,39 @@ speciesCompSummary <- R6Class("SpeciesComp",
       setLengthAdjustment(self, formula, adjustLengths)
     },
     setModelParameters = function(fixedParameters = c("mu", "sigma", "muChinook", "sigmaChinook", "pJackChinook"), 
-                                  parameterValues = list(), adjustLengths = NULL){
-      setModelParameters(self, fixedParameters, parameterValues, adjustLengths)
+                                  parameterValues = list(), adjustLengths = NULL, includeTestFishery = NULL, testFisheryWeights = 1){
+      setModelParameters(self, fixedParameters, parameterValues, adjustLengths, includeTestFishery, testFisheryWeights)
     },
     setModelProportions = function(formula = list()){
       setModelProportions(self, formula)
+    },
+    fitModel = function(simulatedData = FALSE){
+      runEMAlgorithm(self, simulatedData)
+    },
+    simulate = function(){
+      simulate_givenData(self)
+    },
+    setPriors = function(priors = list()){
+      setPriors(self, priors = priors)
     }
   )
 )
+
+setPriors <- function(speciesComp, priors = list()){        
+        default <- function(x){0}
+        dsigma <- extractControls(priors$sigma, default)
+        dsigmaChin <- extractControls(priors$sigmaChinook, default)
+        dsigma0 <- extractControls(priors$sigma0, default)
+        dmu <- extractControls(priors$mu, default)
+        dmuChin <- extractControls(priors$muChinook, default)
+        dbeta <- extractControls(priors$beta, default)
+        dq <- extractControls(priors$catchability, default)
+        dalpha <- extractControls(priors$alpha, default)
+        speciesComp$priorDist <- function(sigma, sigmaChin, sigma0, mu, muChin, beta, q, alpha){
+          dsigma(sigma) + dsigmaChin(sigmaChin) + dsigma0(sigma0) + dmu(mu) + dmuChin(muChin) + dbeta(beta) + dq(q) + dalpha(alpha)
+        }
+}
+
 
 speciesCheck <- function(spp){
   allowed <- c("smallresident", "largeresident", "pink", "sockeye", "jackchinook", "adultchinook", "smalladultchinook", "largeadultchinook")
@@ -112,7 +142,7 @@ checkDate <- function(eDate){
 }
 
 ## Core Mission Data Processing function:
-processMissionLengths <- function(speciesComp, sonarCounts, sonarLengths){
+processMissionLengths <- function(speciesComp, sonarCounts, sonarLengths, dropN = 2){
   
   year <- as.numeric(format(speciesComp$estDate, "%Y"))
   
@@ -176,10 +206,14 @@ processMissionLengths <- function(speciesComp, sonarCounts, sonarLengths){
   sonarLengths$Date <- sonarLengths$MissionDate
   
   ## Add Stratum:
-  sonarLengths <- sonarLengths |> within(stratum <- paste(SonarCode, SonarBin, SonarAim, sep = "_"))
+  sonarLengths <- sonarLengths |> within(SonarBank <- ifelse(SonarCode == "A1", "Left Bank", "Right Bank"))  
+  sonarLengths <- sonarLengths |> within(stratum <- paste(SonarBank, SonarBin, SonarAim, sep = "_"))
   ## Add beam width:
   sonarLengths <- sonarLengths |> within(beamWidth.cm <- R.m*0.3*pi/180*100)
-  
+
+  ## Will remove single lengths measured in an hour:
+  sonarLengths <- sonarLengths |> filter(nLengths > dropN)
+
   speciesComp$sonarLengths <- sonarLengths
 }
 
@@ -213,26 +247,35 @@ processQualarkLengths <- function(...){}
 
 ## Add Roxygen
 setModelProportions <- function(speciesComp, formula = list()){
-  pFormula <- extractControls(formula$formula, ~ stratum:day)
-  pcFormula <- extractControls(formula$chinook, ~ 1)
+  pFormula <- extractControls(formula$all, ~ -1 + stratum:day)
 
   ## Model Data:
   ndays <- speciesComp$ndays
   dates_ <- seq(speciesComp$estDate - ndays + 1, speciesComp$estDate, 1)
   lengthData <- speciesComp$sonarLengths |> subset(Date %in% dates_) |> within(day <- as.numeric(factor(Date)))
+  lengthData <- lengthData |> within(L.cm.adj <- L.cm/cos(speciesComp$rollAngle/180*pi))
   speciesComp$analysisData$lengthData <- lengthData
+  
+  ## Subset per stratum/Hour to be able to efficiently compute quantities:
+  speciesComp$analysisData$lengthData <- speciesComp$analysisData$lengthData |> 
+                                          within(grpID <- factor(paste(day, Hour, stratum, sep = "_"))) |>
+                                          within(grpIndex <- as.numeric(grpID))
 
+  predDF <- speciesComp$analysisData$lengthData %>% subset(!duplicated(grpIndex))
+  predDF <-  predDF[order( predDF$grpIndex),]
+  speciesComp$analysisData$predDF <- predDF
+  
   ## Potential species models:
   sppNames <- grep("chinook", speciesComp$species, invert = TRUE, value = TRUE)
   speciesComp$analysisData$Xprop <- list()
   for( i in seq_along(sppNames) ){
     sppi <- sppNames[i]
-    formula <- extractControls(formula[[sppi]], ~ -1 + stratum:day)
-    speciesComp$analysisData$Xprop[[sppi]] <- model.matrix(formula, data = lengthData)
+    formulai <- extractControls(formula[[sppi]], pFormula)
+    speciesComp$analysisData$Xprop[[sppi]] <- model.matrix(formulai, data =  predDF)
   }
   ## jackChinook model:
-  formula <- extractControls(formula[["jackchinook"]], ~ 1) ## adult chinook or small/large adults will default to the same, minus input.
-  speciesComp$analysisData$XpropChin <- model.matrix(formula, data = lengthData)
+  formulajc <- extractControls(formula[["jackchinook"]], ~ 1) ## adult chinook or small/large adults will default to the same, minus input.
+  speciesComp$analysisData$XpropChin <- model.matrix(formulajc, data = predDF)
 
   ## Add in test fishery counts if present:
   if(!is.null(speciesComp$testFisheryCounts)){
@@ -249,6 +292,7 @@ setModelProportions <- function(speciesComp, formula = list()){
       speciesComp$analysisData$testFisheryCounts <- speciesComp$analysisData$testFisheryCounts |> 
                                                     subset(select = c(-jackchinook, -adultchinook))
   }
+  speciesComp$analysisData$testFisheryCounts <- as.matrix(speciesComp$analysisData$testFisheryCounts)
 }
 
 setLengthAdjustment <- function(speciesComp, formula = ~ beamWidth.cm, adjustLengths = TRUE){
@@ -262,7 +306,7 @@ setSpeciesLengths <- function(speciesComp, mu = NULL, sigma = NULL, pChin = NULL
   dates_ <- seq(speciesComp$estDate - ndays + 1, speciesComp$estDate, 1)
 
   ## Default values:
-  mu_ <- c("smallresident" = 22.7, "largeresident" = 35, "jackchinook" = 43, "pink" = 50, "sockeye" = 58, "adultchinook" = 75, "smalladultchinook" = 63, "largeadultchinook" = 76)
+  mu_ <- c("smallresident" = 22.7, "largeresident" = 39, "jackchinook" = 43, "pink" = 50, "sockeye" = 58, "adultchinook" = 75, "smalladultchinook" = 63, "largeadultchinook" = 76)
   sigma_ <- c("smallresident" = 2.5, "largeresident" = 2.5, "jackchinook" = 2.5, "pink" = 3, "sockeye" = 3.5, "adultchinook" = 7.5,"smalladultchinook" = 5, "largeadultchinook" = 6)
   pChin_ <- c("jackchinook" = 0.05, "adultchinook" = 0.95,"smalladultchinook" = 0.17, "largeadultchinook" = 0.78)
   
@@ -310,6 +354,7 @@ setSpeciesLengths <- function(speciesComp, mu = NULL, sigma = NULL, pChin = NULL
         capture.output(fit <- mixtools::normalmixEM(x, lambda = pChin_[-nchin], mu = muChin_, sigma = sigmaChin_))
         ## Check that we captured jack chinook: 
         if(min(fit$mu) > 50){
+           ## Make it more specific about how to actually set alternative.
           cat("[Warning]  Unable to estimate jack Chinook from the test fishery data. Using default mean and variance.\n")
           if(any(speciesComp$species == "largeadultchinook")){
             capture.output(fit <- mixtools::normalmixEM(x[x > 50], lambda = pChin_[2], mu = muChin_[-1], sigma = sigmaChin_[-1]))
@@ -356,18 +401,32 @@ setModelParameters <- function(speciesComp, fixedParameters = c("mu", "sigma", "
   }
   q <- q[names(q) %in% speciesComp$species]
 
+  speciesComp$analysisData$qSppNames <- names(q)
+  speciesComp$analysisData$qSppIndices <- which(speciesComp$species %in% names(q))
+
   ## Extract all the fixed values present and use the parameter values already present otherwise.
   ## These should be setup in via 'setSpeciesLengths'.
   mu <- as.numeric(extractControls(parameterValues$mu, speciesComp$parameters$mu))
-  sigma <- as.numeric(extractControls(parameterValues$sigma, speciesComp$parameters$sigma))
+  sigma <- as.numeric(extractControls(parameterValues[["sigma"]], speciesComp$parameters$sigma))
   muChin <- as.numeric(extractControls(parameterValues$muChinook, speciesComp$parameters$muChin))
   sigmaChin <- as.numeric(extractControls(parameterValues$sigmaChinool, speciesComp$parameters$sigmaChin))
   pChin <- extractControls(parameterValues$pChinook, speciesComp$parameters$pChin)
   ## If setLengthAdjustment() has not been called, call it now:
-  if(is.null(speciesComp$Xlength)) setLengthAdjustment(speciesComp)
+  if(is.null(speciesComp$analysisData$Xlength)) setLengthAdjustment(speciesComp)
   beta <- as.numeric(extractControls(parameterValues$beta, numeric(ncol(speciesComp$analysisData$Xlength))))
   sigma0 <- as.numeric(extractControls(parameterValues$sigma0, 6))
   q <- as.numeric(extractControls(parameterValues$catchability, q))
+
+  ## Make sure all the values are provided:
+  if(length(speciesComp$species) != length(c(mu, muChin))){
+    stop("Must provide values for mean lengths of all species via `setSpeciesLengths` or via parameterValues input.")
+  }
+  if(length(speciesComp$species) != length(c(sigma, sigmaChin))){
+    stop("Must provide values for standard deviation lengths of all species via `setSpeciesLengths` or via parameterValues input.")
+  }
+  if(length(grep("chinook", speciesComp$species, value = TRUE)) != length(pChin)){
+    stop("Must provide values mean lengths of all species via `setSpeciesLengths` or via parameterValues input.")
+  }
 
   speciesComp$parsInit <- list()
   speciesComp$parsFixed <- list()
@@ -382,12 +441,12 @@ setModelParameters <- function(speciesComp, fixedParameters = c("mu", "sigma", "
   }else{
     speciesComp$parsInit$logsigma <- log(sigma)
   }
-  if("muChin" %in% fixedParameters){
+  if("muChinook" %in% fixedParameters){
     speciesComp$parsFixed$muChin <- muChin
   }else{
     speciesComp$parsInit$muChin <- muChin
   }
-  if("sigmaChin" %in% fixedParameters){
+  if("sigmaChinook" %in% fixedParameters){
     speciesComp$parsFixed$logsigmaChin <- log(sigmaChin)
   }else{
     speciesComp$parsInit$logsigmaChin <- log(sigmaChin)
@@ -415,9 +474,6 @@ setModelParameters <- function(speciesComp, fixedParameters = c("mu", "sigma", "
     speciesComp$parsFixed$logq <- log(q)
   }
 
-  speciesComp$analysisData$qSppNames <- names(q)
-  speciesComp$analysisData$qSppIndices <- which(speciesComp$species %in% names(q))
-
   nc <- ncol(speciesComp$analysisData$XpropChin)
   logitpChin <- logitM(pChin)
   nr <- length(logitpChin)
@@ -436,7 +492,8 @@ setModelParameters <- function(speciesComp, fixedParameters = c("mu", "sigma", "
   alpha <- NULL
   for( i in 1:length(mu) ){
     y <- (probid == i)*1
-    fit <- glm(cbind(y, 1)~-1+speciesComp$analysisData$Xprop[[i]], family = "binomial")
+    X <- speciesComp$analysisData$Xprop[[i]][speciesComp$analysisData$lengthData$grpIndex,]
+    fit <- glm(cbind(y, 1)~-1+X, family = "binomial")
     alphai <- coef(fit)
     alphai[is.na(alphai)] <- -2
     alpha <- c(alpha, as.numeric(alphai))

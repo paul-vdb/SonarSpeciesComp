@@ -1,14 +1,3 @@
-
-## extractControls
-## Convenience copy from Nimble to extract values from control input of functions.
-extractControls <- function(controlValue, defaultValue)
-{
-  if(!is.null(controlValue))  
-    return(controlValue)
-  else 
-    return(defaultValue)
-}
-
 #' Simulate Lengths and Test Fishery Data:
 #'
 #' Function to simulate sonar lengths and test fishery data to test hydroacoustic species composition model.
@@ -191,3 +180,77 @@ simulate <- function(N = c(1000, 5000, 2000),
   datalist <- list(count_data = count_data_sum, length_data = length_data, test_data = tf_count, true_proportions)
   return(datalist)
 }
+
+#' Simulate Lengths and Test Fishery Data:
+#'
+#' @export
+simulate_givenData <- function(speciesComp){
+
+  if(is.null(speciesComp$estimatedParameters)) stop("Must 'fitModel' prior to calling simulate.")
+  params <- speciesComp$estimatedParameters
+  dataList <- speciesComp$analysisData
+  ## Parameter Processing
+  Kchin <- length(params$muChin)
+  K0 <- length(params$mu)
+  K <- Kchin + K0
+  mu <- c(params$mu, params$muChin)
+  q <- exp(c(params$logq, 0))
+
+  ## Standard deviation incld. observation error
+  logsigma_ <- c(params$logsigma, params$logsigmaChin)
+  sigma <- sqrt(exp(2*logsigma_) + exp(2*params$logsigma0))
+
+  ## Set up proportions. alpha parameter for predicting proportions. 
+  ## Xalpha is a list of design matrices for each species.
+  np <- nrow(dataList$predDF)
+  logitp <- matrix(0, nrow = np, ncol = K0) ## +1 is Chinook.
+  indx0 <- 1
+  for( i in 1:K0 ){
+    nc <- ncol(dataList$Xprop[[i]]) 
+    indx1 <- indx0 + nc - 1
+    logitp[,i] <- as.matrix(dataList$Xprop[[i]]) %*% params$alpha[indx0:indx1]
+    indx0 <- indx1 + 1
+  }
+
+  logitpjack <- as.matrix(dataList$XpropChin) %*% params$alphaJackChinook
+  pjack <- 1/(1+exp(-logitpjack))
+
+  p <- matrix(0, nrow = np, ncol = K)
+  for( i in 1:np ) {
+    p[i, 1:(K0+1)] <- expitM(logitp[i,])  
+    p[i, (K0+1):K ] <- p[i, (K0+1)]*c(pjack[i], (1-pjack[i])*params$pAdultChinook)
+  }
+  ## Calculate Posterior Probabilities + log likelihood:
+  pobs <- p[dataList$lengthData$grpIndex,]
+  L <- apply(pobs, 1, FUN = function(x){    
+    id = sample(K, 1, prob = x)
+    rnorm(1, mu[id], sigma[id])
+  })
+  
+  if(speciesComp$adjustLengths){
+    L <- L + as.matrix(dataList$Xlength) %*% params$beta
+  }
+  dataList$lengthData$L.cm <- L
+  dataList$lengthData$L.cm.adj <- L/cos(speciesComp$rollAngle/180*pi)
+  
+  ## Simulate Test Fishery Counts as well:
+  if(!is.null(dataList$testFisheryCounts)){
+    tfcount <- NULL
+    ndays <- nrow(dataList$testFisheryCounts)
+    padultchinook <- 1-rowSums(p[,1:(K0+1)])
+    nq <- ncol(dataList$testFisheryCounts)
+    for( d in 1:ndays ){
+      idx <- which(dataList$predDF$day == d)
+      Nd <- sapply(dataList$qSppIndices, FUN = function(x){sum(p[idx,x]*dataList$predDF$SalmonCount[idx])})
+      Ndc <- sum(padultchinook[idx]*dataList$predDF$SalmonCount[idx])
+      Nd <- c(Nd, Ndc)
+      # Nsalmon <- sum(dataList$lengthData$SalmonCount[idx]/dataList$lengthData$nLengths[idx])
+      prob <- (q*Nd)/sum(q*Nd)
+      tfcount <- rbind(tfcount, rmultinom(1, prob = prob, size = sum(dataList$testFisheryCounts[d,]))[,1])
+    }
+    colnames(tfcount) <- colnames(dataList$testFisheryCounts)
+    dataList$testFisheryCounts <- tfcount
+  }
+  speciesComp$simData <- dataList
+}
+

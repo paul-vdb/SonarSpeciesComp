@@ -75,20 +75,20 @@ negLL <- function(pars){
 }
 
 ## Place holders for penalty/prior terms:
-prior_beta <- function(beta){
+prior_beta <- function(x){
   0
 }
-prior_sigma0 <- function(sigma0){
-  0
-}
-## This prior includes chinook jack and adult.
-prior_sigma <- function(sigma){
-  0
-}
-prior_q <- function(q){
+prior_sigma0 <- function(x){
   0
 }
 ## This prior includes chinook jack and adult.
-prior_mu <- function(sigma0){
+prior_sigma <- function(x){
+  0
+}
+prior_q <- function(x){
+  0
+}
+## This prior includes chinook jack and adult.
+prior_mu <- function(x){
   0
 }
