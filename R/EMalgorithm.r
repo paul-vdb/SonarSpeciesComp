@@ -39,7 +39,7 @@ EMstep <- function(parsOuter){
   Nkc <- sum((1-rowSums(p[,1:(K0+1)]))*dataList$predDF$SalmonCount)
 
   ## Prior jack chinook:
-  ll <- ll + dbeta(Njc/(Nkc+Njc), 10, 500, log = TRUE)
+  # ll <- ll + dbeta(Njc/(Nkc+Njc), 10, 500, log = TRUE)
 
   ## Adjust lengths for beam spreading:
   ## X is a design matrix that is either distance from shore, or bin id. 
@@ -52,7 +52,8 @@ EMstep <- function(parsOuter){
   wgts <- dataList$lengthData$weights
   
   ## Prior or penalty terms:
-  ll <- ll + dprior(sigma = exp(logsigma), sigmaChin = exp(logsigmaChin), sigma0 = exp(logsigma0), mu = mu, muChin = muChin, beta = beta, q = exp(logq), alpha)
+  ll <- ll + dprior(sigma = exp(logsigma), sigmaChin = exp(logsigmaChin), sigma0 = exp(logsigma0), mu = mu, muChin = muChin, 
+                    beta = beta, q = exp(logq), alpha, alphaJackChinook)
   # prior_sigma0(exp(logsigma0)) + prior_beta(beta) # + prior_sigma(exp(logsigma)) + prior_mu(mu) ## Add prior to q.
   
   ## Calculate Posterior Probabilities + log likelihood:
@@ -117,12 +118,11 @@ EMstep <- function(parsOuter){
 
     Njc <- sum(p[,K0+1]*dataList$predDF$SalmonCount)
     Nkc <- sum((1-rowSums(p[,1:(K0+1)]))*dataList$predDF$SalmonCount)
-    
+
     ## Objective function for length based mixture model, conditional on posterior probs.
     objval <- 0
     ## Prior jack chinook based on overal proportion.
-    objval <- objval - dbeta(Njc/(Nkc+Njc), 10, 500, log = TRUE) 
-
+    # objval <- objval - dbeta(Njc/(Nkc+Njc), 10, 500, log = TRUE) 
 
     ## Adjust lengths for beam spreading:
     ## X is a design matrix that is either distance from shore, or bin id. 
@@ -135,8 +135,8 @@ EMstep <- function(parsOuter){
     wgts <- dataList$lengthData$weights
     
     ## Prior/penalty terms: Probably should do some sort of transformation:
-    objval <- objval - dprior(sigma = exp(logsigma), sigmaChin = exp(logsigmaChin), sigma0 = exp(logsigma0), mu = mu, muChin = muChin, beta = beta, q = exp(logq), alpha)
-    
+    objval <- objval - dprior(sigma = exp(logsigma), sigmaChin = exp(logsigmaChin), sigma0 = exp(logsigma0), mu = mu, muChin = muChin, 
+                    beta = beta, q = exp(logq), alpha, alphaJackChinook)
     for( k in 1:K ){
       objval <- objval - sum(wgts*postProb[,k]*(logpobs[,k] + dnorm(L, muc[k], sigma[k], log = TRUE)))
     }
@@ -162,6 +162,86 @@ EMstep <- function(parsOuter){
   Newton <- F$newton(1:length(F$par()), maxit = 1000 )
   pars_opt <- Newton(numeric(0))
   c(pars_opt, ll)
+}
+
+
+negLogDensity <- function(pars){
+  getAll(pars, parsFixed, warn = FALSE)
+  ll <- 0
+ 
+  ## Parameter Processing
+  Kchin <- length(muChin)
+  K0 <- length(mu)
+  K <- Kchin + K0
+  muc <- c(mu, muChin)
+  q <- exp(c(logq, 0))
+
+  ## Standard deviation incld. observation error
+  logsigma_ <- c(logsigma, logsigmaChin)
+  sigma <- sqrt(exp(2*logsigma_) + exp(2*logsigma0))
+
+  ## Set up proportions. alpha parameter for predicting proportions. 
+  ## Xalpha is a list of design matrices for each species.
+  np <- nrow(dataList$predDF)
+  logitp <- matrix(0, nrow = np, ncol = K0) ## +1 is Chinook.
+  indx0 <- 1
+  for( i in 1:K0 ){
+    nc <- ncol(dataList$Xprop[[i]]) 
+    indx1 <- indx0 + nc - 1
+    logitp[,i] <- as.matrix(dataList$Xprop[[i]]) %*% alpha[indx0:indx1]
+    indx0 <- indx1 + 1
+  }
+
+  logitpjack <- as.matrix(dataList$XpropChin) %*% alphaJackChinook
+  pjack <- 1/(1+exp(-logitpjack))
+
+  p <- matrix(0, nrow = np, ncol = K)
+  for( i in 1:np ) {
+    p[i, 1:(K0+1)] <- expitM(logitp[i,])  
+    p[i, (K0+1):K ] <- p[i, (K0+1)]*c(pjack[i], (1-pjack[i])*pAdultChinook)
+  }
+  Njc <- sum(p[,K0+1]*dataList$predDF$SalmonCount)
+  Nkc <- sum((1-rowSums(p[,1:(K0+1)]))*dataList$predDF$SalmonCount)
+
+  ## Prior jack chinook:
+  # ll <- ll + dbeta(Njc/(Nkc+Njc), 10, 500, log = TRUE)
+
+  ## Adjust lengths for beam spreading:
+  ## X is a design matrix that is either distance from shore, or bin id. 
+  ## It is expected to contain an intercept term.
+  if(adjustLengths){
+    L <- dataList$lengthData$L.cm.adj - as.matrix(dataList$Xlength) %*% beta
+  }else{
+    L <- dataList$lengthData$L.cm.adj
+  }
+  wgts <- dataList$lengthData$weights
+  
+  ## Prior or penalty terms:
+  ll <- ll + dprior(sigma = exp(logsigma), sigmaChin = exp(logsigmaChin), sigma0 = exp(logsigma0), mu = mu, muChin = muChin, 
+                    beta = beta, q = exp(logq), alpha, alphaJackChinook)
+  
+  ## Calculate Posterior Probabilities + log likelihood:
+  pobs <- p[dataList$lengthData$grpIndex,]
+  outerLL <- calcPostProb(x = L, mu = muc, sigma = sigma, prob = pobs, wgts = wgts)
+  postProb <- outerLL$postp
+  ll <- ll + outerLL$ll
+
+  ## Test fishery component:
+  if(includeTestFishery){
+    ndays <- nrow(dataList$testFisheryCounts)
+    padultchinook <- 1-rowSums(p[,1:(K0+1)])
+    nq <- ncol(dataList$testFisheryCounts)
+    for( d in 1:ndays ){
+      idx <- which(dataList$predDF$day == d)
+      Nd <- sapply(dataList$qSppIndices, FUN = function(x){sum(p[idx,x]*dataList$predDF$SalmonCount[idx])})
+      Ndc <- sum(padultchinook[idx]*dataList$predDF$SalmonCount[idx])
+      Nd <- c(Nd, Ndc)
+      # Nsalmon <- sum(dataList$lengthData$SalmonCount[idx]/dataList$lengthData$nLengths[idx])
+      prob <- (q*Nd)/sum(q*Nd)
+      ll <- ll + dataList$testFisheryWeights[d]*dmultinom(dataList$testFisheryCounts[d,], prob = prob, size = sum(dataList$testFisheryCounts[d,]), log = TRUE)
+    }
+  }
+  -ll
 }
 
 runEMAlgorithm <- function(speciesComp, simulatedData = FALSE){
@@ -266,3 +346,35 @@ runEMAlgorithm <- function(speciesComp, simulatedData = FALSE){
   hourlyPredDF <- cbind(speciesComp$analysisData$predDF[, c("Date", "day", "SonarBank", "SonarAim", "SonarBin", "Hour", "HourOrder", "SalmonCount")], p)
   speciesComp$estimatedHourlyProportions <- hourlyPredDF
 }
+
+# parsInit <- speciesComp$parsInit
+# speciesComp$fitModel()
+# dataenv <- local({dataList <- speciesComp$analysisData; includeTestFishery <- speciesComp$includeTestFishery; 
+                # parsFixed <- speciesComp$parsFixed; adjustLengths <- speciesComp$adjustLengths; dprior = speciesComp$priorDist;
+                # environment()})
+# environment(negLogDensity) <- dataenv
+# obj <- MakeADFun(negLogDensity, parsInit)
+## Find Hessian:
+# pars.em <- do.call('c', speciesComp$estimatedParameters[names(speciesComp$parsInit)])
+# obj$fn(pars.em)
+# sdrep <- sdreport(obj)
+# sdrep
+## Can ADD ADREPORT to get Standard Error of Estimates or do bootstrapping...
+
+# library(tmbstan)
+# fit <- tmbstan(obj, chains = 1, iter = 1000, warmup = 200, init = list(speciesComp$estimatedParameters[names(speciesComp$parsInit)]))
+
+# traceplot(fit, pars = "logq")
+# traceplot(fit, pars = "alpha")
+# traceplot(fit, pars = "beta")
+# fit
+# speciesComp$estimatedParameters[names(speciesComp$parsInit)]
+
+# speciesComp$setPriors(priors = list(
+  # beta = function(x){sum(dnorm(x, c(-1, -0.8), c(0.1, 0.1), log = TRUE))}, 
+  # sigma0 =  function(x){sum(dgamma(x, 1, 0.2, log = TRUE) + log(x))},
+  # catchability =  function(x){sum(dnorm(x, c(0.25, 0.1), c(0.3, 0.00001), log = TRUE) + log(x))},
+  # alpha =  function(x){sum(dnorm(x, 0, 10, log = TRUE))},  
+  # alphaJackChinook = function(x){sum(dnorm(x, 0, 10, log = TRUE))}
+  # ))
+# speciesComp$fitModel()

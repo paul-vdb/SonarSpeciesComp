@@ -5,6 +5,7 @@ expitM <- function(x){
   ex <- exp(c(x,0))
   ex/sum(ex)
 }
+
 ## Multivariate Logit Transform
 logitM <- function(p){
   K <- length(p)
@@ -117,3 +118,5 @@ findGlobalMode <- function(x, xrange = NULL, ...) {
   return(xmax)
 }
 
+## Not in Base R? Really...
+is.Date <- function(x) inherits(x, 'Date')

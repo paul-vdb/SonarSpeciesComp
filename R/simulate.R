@@ -184,7 +184,7 @@ simulate <- function(N = c(1000, 5000, 2000),
 #' Simulate Lengths and Test Fishery Data:
 #'
 #' @export
-simulate_givenData <- function(speciesComp){
+simulateGivenData <- function(speciesComp){
 
   if(is.null(speciesComp$estimatedParameters)) stop("Must 'fitModel' prior to calling simulate.")
   params <- speciesComp$estimatedParameters

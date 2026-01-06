@@ -99,6 +99,58 @@ sonarLengths %>%
   filter(MissionDate == "2023-09-03", SonarCode == "A1", SonarBin == "Bin1", Hour == 11)
 
 
+###########################################################
+## HMC Version:
+###########################################################
+speciesComp <- speciesCompSummary$new(
+            species = c("largeresident", "jackchinook", "sockeye", "adultchinook"), 
+            site = "Mission", estDate = "2023-08-05")
+speciesComp$processData(sonarCounts, sonarLengths, testFisheryCounts) ## Process all data:
+speciesComp$setDate(estDate = "2023-08-10", ndays = 3)
+
+speciesComp$setDate("2023-08-05")
+speciesComp$setSpecies(species = c("largeresident", "jackchinook", "sockeye", "smalladultchinook", "largeadultchinook"))
+speciesComp$setSpeciesLengths(testFisheryLengths = testFisheryLengths, ndays = 10)
+speciesComp$setSpeciesLengths(mu = c("largeresident" = 42), 
+                              sigma = c("largeresident" = 2.25), 
+                              testFisheryLengths = testFisheryLengths, ndays = 10)
+
+speciesComp$setModelProportions(formula = list("sockeye" = ~ -1 + factor(day):SonarBank:SonarBin + factor(day):SonarAimF, 
+                                        "largeresident" = ~ -1 + factor(day):SonarBank:SonarBin + factor(day):SonarAimF)
+                                )
+# speciesComp$setLengthAdjustment(formula = ~ beamWidth.cm, adjustLengths = TRUE)
+speciesComp$setLengthAdjustment(formula = ~ -1 + SonarBin, adjustLengths = TRUE)
+
+speciesComp$setModelParameters(fixedParameters = c("mu", "sigma", "muChinook", "sigmaChinook"),
+  parameterValues = list(beta = c(0, 3, 7), sigma0 = 5), testFisheryWeights = 200)
+
+speciesComp$setPriors(priors = list(
+  beta = function(x){sum(dnorm(x, c(0, 5, 9), c(0.1, 0.1, 0.1), log = TRUE))}, 
+  sigma0 =  function(x){sum(dgamma(x, 1, 0.2, log = TRUE) + log(x))},
+  catchability =  function(x){sum(dnorm(x, c(0.25, 0.5), c(0.3, 0.01), log = TRUE) + log(x))},
+  alpha =  function(x){sum(dnorm(x, 0, 10, log = TRUE))},
+  alphaJackChinook = function(x){sum(dnorm(x, -3, 0.1, log = TRUE))}
+  ))
+speciesComp$controlOptimization(verbose = TRUE)
+speciesComp$fitModel()
+
+tru.params <- speciesComp$estimatedParameters
+tru.p <- speciesComp$estimatedDailyProportions
+tru.p %>% filter(day == 3, SonarBank == "Left Bank")
+tru.params$mu
+
+speciesComp$sonarLengths %>% filter(MissionDate %in% seq(speciesComp$estDate-2, speciesComp$estDate,1)) %>% 
+  group_by(Date, SonarAim, SonarCode, SonarBin, HourOrder) %>% 
+  summarize(Count = Count[1], SalmonCount = SalmonCount[1]) %>%
+  arrange(-SalmonCount)
+
+names(tru.params$alpha) <- colnames(do.call('cbind', speciesComp$analysisData$Xprop))
+
+speciesComp$sonarLengths %>% filter(MissionDate %in% seq(speciesComp$estDate-0, speciesComp$estDate,1)) %>% mutate(L.cm.adj = case_when(
+SonarBin == "Bin1" ~ L.cm - tru.params$beta[1],
+SonarBin == "Bin2" ~ L.cm - tru.params$beta[2],
+SonarBin == "Bin3" ~ L.cm - tru.params$beta[3])) %>%
+  ggplot(aes(x = L.cm.adj, colour = SonarBin, linetype = SonarBank)) + geom_density() + theme_bw() + facet_wrap(~SonarAimF)
 
 ## Model from scratch:
 speciesComp <- speciesCompSummary$new(

@@ -1,4 +1,42 @@
-
+#' Species Composition Estimation Methods
+#'
+#' Object to step through all the different setups and steps of estimating species composition on the Fraser River (Qualark and Mission) using Hydroacoustics and the test fishery.
+#'
+#' @param species vector of species names  e.g. c("largeresident", "jackChinook", "sockeye", "adultchinook")
+#' @param estDate Date that you will estimate. Not necessary to set yet.
+#' @param ndays Number of days to combine, defaults to 1
+#' @param site Choose between "Mission" or "Qualark", the difference being the roll angle.
+#'
+#' @details This is an R6 object that holds all of the methods to estimate species composition and generate reports. The methods include:
+#' \itemize{
+#'  \item{setSpecies}{Update the object with species to fit in a model. Input: 'species': options are c("smallresident", "largeresident", "pink", "sockeye", "jackchinook", "adultchinook", "smalladultchinook", "largeadultchinook").}
+#'  \item{setDate}{Update the estimation date and number of days to use. Input: 'estDate' and 'ndays'}
+#'  \item{controlOptimization}{Control optimization of the EM algorithm. Input: 'tolerance' what difference is okay (default 1e-8), 'maxiters' maximum iterations of EM algorithm (default 1000), 
+#'  'relativeDifference' true or false to choose relative vs absolute difference on each iteration of algorithm, 'verbose' true or false to print details of EM algorithm.}
+#'  \item{processData}{Core function for adding data to the object. Does the main data processing and adds a few columns needed elsewhere for the entire dataset added to make it fast and easy to do different days. 
+#'  Input: 'sonarCounts' and 'sonarLengths' are data frames see \code{?processMissionLengths} or \code{?processQualarkLengths} for details, 
+#'  'testFisheryCounts' data frame see \code{?processWhonnockCounts} or \code{?processQualarkTFCounts} for details, 
+#'  'includeTangled' Whether or not to include tangled or just gilled counts, and
+#'  'dropN' Keep length measurements per hour/bin/bank etc. if > dropN (default 2).}
+#'  \item{setSpeciesLengths}{mu = NULL, sigma = NULL, pChin = NULL, testFisheryLengths = NULL, ndays = 6}
+#'  \item{setLengthAdjustment}{Choose whether to do length adjustments and the formula to use. Input: 'formula' (default ~ beamWidth.cm) but may consider (~ -1 + SonarBin), 'adjustLengths' (default TRUE).}
+#'  \item{setModelParameters}{Core function to set the model before fitting with EM algorithm, especially which values to fix and which to fit. Input: 
+#'  'fixedParameters' (default c("mu", "sigma", "muChinook", "sigmaChinook", "pJackChinook")),
+#'  'parameterValues' used as either initial values or fixed values, 'adjustLengths' should lengths be adjusted (default NULL), 
+#'  'includeTestFishery' Should test fishery data be used (default NULL), 'testFisheryWeights' How much to weight test fishery counts (default 1). NULL implies existing values if already set in object.}
+#'  \item{setModelProportions}{Function to set what the relationship with time, date, formula = list()}
+#'  \item{fitModel}{Runs EM algorithm based on object values for input. Results are saved as part of object: 'estimatedParameters', 'estimatedHourlyProportions', and 'estimatedDailyProportions'}
+#'  \item{simulate}{Simulate the model for the counts on the 'estDate' and 'ndays' with parameter values equal to 'estimatedParameters' within the object. See \code{?simulateGivenData} for details.}
+#'  \item{setPriors}{Can set penalties/priors for terms at their real scale. Input: 'priors' List of functions, named after the parameter the prior will set (default list()).}
+#' }
+#' To get more detailed information about each method, do \code{?method} to see full description.
+#'
+#' @returns An R6 object with methods and values used for fitting species composition models.
+#'
+#' @examples
+#' speciesComp <- speciesCompSummary$new(species = c("largeresident", "jackchinook", "sockeye", "adultchinook"), site = "Mission", estDate = "2023-08-05")
+#' 
+#' @export
 speciesCompSummary <- R6Class("SpeciesComp",
   public = list(
     site = NULL,
@@ -32,8 +70,9 @@ speciesCompSummary <- R6Class("SpeciesComp",
       self$estDate <- checkDate(estDate)
       self$ndays <- ndays
       self$site <- site
-      if(site == "Mission") self$rollAngle <- 0
+      if(site == "Mission") self$rollAngle <- 0     
       else self$rollAngle <- 35
+      self$priorDist <- function(...){0}  
     },
     ## Set the species names: Convenient and for printing.
     setSpecies = function(species = NULL){
@@ -70,7 +109,7 @@ speciesCompSummary <- R6Class("SpeciesComp",
     setSpeciesLengths = function(mu = NULL, sigma = NULL, pChin = NULL, testFisheryLengths = NULL, ndays = 6){
       setSpeciesLengths(self, mu, sigma, pChin, testFisheryLengths, ndays)
     },
-    setLengthAdjustment = function(speciesComp, formula = ~ beamWidth.cm, adjustLengths = TRUE){
+    setLengthAdjustment = function(formula = ~ beamWidth.cm, adjustLengths = TRUE){
       setLengthAdjustment(self, formula, adjustLengths)
     },
     setModelParameters = function(fixedParameters = c("mu", "sigma", "muChinook", "sigmaChinook", "pJackChinook"), 
@@ -84,7 +123,7 @@ speciesCompSummary <- R6Class("SpeciesComp",
       runEMAlgorithm(self, simulatedData)
     },
     simulate = function(){
-      simulate_givenData(self)
+      simulateGivenData(self)
     },
     setPriors = function(priors = list()){
       setPriors(self, priors = priors)
@@ -92,6 +131,7 @@ speciesCompSummary <- R6Class("SpeciesComp",
   )
 )
 
+#' @export
 setPriors <- function(speciesComp, priors = list()){        
         default <- function(x){0}
         dsigma <- extractControls(priors$sigma, default)
@@ -102,8 +142,10 @@ setPriors <- function(speciesComp, priors = list()){
         dbeta <- extractControls(priors$beta, default)
         dq <- extractControls(priors$catchability, default)
         dalpha <- extractControls(priors$alpha, default)
-        speciesComp$priorDist <- function(sigma, sigmaChin, sigma0, mu, muChin, beta, q, alpha){
-          dsigma(sigma) + dsigmaChin(sigmaChin) + dsigma0(sigma0) + dmu(mu) + dmuChin(muChin) + dbeta(beta) + dq(q) + dalpha(alpha)
+        dalphaJackChinook <- extractControls(priors$alphaJackChinook, default)
+        ## Set priors into species comp object:
+        speciesComp$priorDist <- function(sigma, sigmaChin, sigma0, mu, muChin, beta, q, alpha, alphaJackChinook){
+          dsigma(sigma) + dsigmaChin(sigmaChin) + dsigma0(sigma0) + dmu(mu) + dmuChin(muChin) + dbeta(beta) + dq(q) + dalpha(alpha) + dalphaJackChinook(alphaJackChinook)
         }
 }
 
@@ -213,6 +255,9 @@ processMissionLengths <- function(speciesComp, sonarCounts, sonarLengths, dropN 
 
   ## Will remove single lengths measured in an hour:
   sonarLengths <- sonarLengths |> filter(nLengths > dropN)
+
+  ## I don't like SonarAim being called 3 on right bank if only one aim.
+  sonarLengths <- sonarLengths |> within(SonarAimF <- ifelse(SonarBank == "Right Bank", "Aim3", SonarAim))
 
   speciesComp$sonarLengths <- sonarLengths
 }
@@ -414,6 +459,10 @@ setModelParameters <- function(speciesComp, fixedParameters = c("mu", "sigma", "
   ## If setLengthAdjustment() has not been called, call it now:
   if(is.null(speciesComp$analysisData$Xlength)) setLengthAdjustment(speciesComp)
   beta <- as.numeric(extractControls(parameterValues$beta, numeric(ncol(speciesComp$analysisData$Xlength))))
+
+  if(length(beta) != ncol(speciesComp$analysisData$Xlength)){
+    stop("Provided values for beta parameter do not match the number of columns of the design matrix from 'setLengthAdjustment'")  
+  }
   sigma0 <- as.numeric(extractControls(parameterValues$sigma0, 6))
   q <- as.numeric(extractControls(parameterValues$catchability, q))
 

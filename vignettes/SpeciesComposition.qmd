@@ -1,0 +1,227 @@
+---
+title: "Estimating Species Composition"
+author: "Paul van Dam-Bates"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+description: >
+  An overview of how to estimate species composition using `SonarSpeciesComp`.
+format: 
+  html:
+    theme: cosmo
+vignette: >
+  %\VignetteIndexEntry{Custom HTML Vignette}
+  %\VignetteEngine{quarto::format}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  echo= FALSE,
+  comment = "#>",
+  fig.width = 6,
+  fig.asp = 0.618,
+  out.width = "70%",
+  fig.align = "center"
+)
+
+library(RTMB)
+library(mixtools)
+library(R6)
+source("../R/utils.r")
+source("../R/distributions.r")
+source("../R/processInputs.r")
+source("../R/EMalgorithm.r")
+source("../R/simulate.r")
+
+library(tidyverse)
+library(readxl)
+sonarLengths <- read.csv("../example_data/2023MergedLengths_new35cmonly_Oct2024.csv")
+sonarCounts <- read.csv("../example_data/SONARMERGE export_2023.csv")
+testFisheryCounts <- read_excel("../example_data/2023_WhonnockSpeciesComposition.xlsx")
+driftTimes <- read_excel("../example_data/Whonnock Drift Times.xlsx")
+driftTimes <- driftTimes |> subset(FisheryName == "Area 29 - Whonnock Sockeye Gillnet" & as.numeric(format(TripDate, "%Y")) > 2015)
+driftTimes <- driftTimes %>% group_by(TripDate) %>% summarize(setStart = min(FE_NET_START_OUT_DTT), nSets = n(), .groups = "drop")
+testFisheryCounts <- testFisheryCounts |> left_join(driftTimes, by = c("TRIP_DTT" = "TripDate"))
+othersalmon <- read_excel("../example_data/Whonnock_FLengths_2023-2024_OtherSalmon.xlsx", sheet = "Whonnock 2023", skip = 1)
+othersalmon <- othersalmon %>% select(TestFishery = `Test Fishery`, Species, Fork = `Fork (mm)`, POH = `POH (mm)`, WeightLbs = `Weight (lbs)`, Sex, Date)
+pssalmon <- read_excel("../example_data/Scale Database Export 2013-2023 Pink and Sockeye AB TF .xlsx")
+pssalmon <- pssalmon %>% select(TestFishery = Locality, Species = SpeciesCode, POF, POH, Fork, WeightLbs, Sex, Date = StartDate, Set, CatchPosition)
+testFisheryLengths <- pssalmon %>% mutate(Species = ifelse(Species == "S", "Sockeye", "Pink")) %>% 
+  bind_rows(othersalmon) %>%
+  mutate(FL.cm = Fork/10, POF.cm = POF/10, POH.cm = POH/10) %>% 
+  filter(!is.na(Date) & format(Date, "%Y") == "2023")
+detach("package:tidyverse", unload=TRUE)
+detach("package:readxl", unload=TRUE)
+```
+
+## Introduction
+
+The R package `SonarSpeciesComp` is intended to estimate species composition for fish observed by the hydroacoustic monitoring programs at either Qualark (Fisheries and Oceans Canada), or Mission (Pacific Salmon Commission)
+
+The basic idea is to use hydroacoustic length measurements combined with nearby test fishery counts to identify the proportion of each species migrating each day. A day at Mission runs from 5:00 - 4:59 and at Qualark it is 00:00 - 23:59. 
+
+
+## Data Types
+
+### Hydroacoustic Counts
+
+Every hour hydroacoustic counts are taken in each sonar bin using an ARIS 1800. At Qualark the sonar is rolled 35 degrees to be able to enumerate all fish along a steep bank. At Mission, the right bank is relatively flat and a single aim with no roll is sufficient for full coverage. However, on the left bank, two aims are used within the first 10 m to enumerate all fish. At both sites, counts are done by bank, and 10 m distance bins. Qualark completes counts out to 30 m, or 3 bins on each bank, and Mission out to 50 m. Counts are labelled as Up and Down for the number of fish counted as swimming upstream or down stream.
+
+The package requires count data as a data frame with columns that are slightly specific for each site.
+
+1. Mission requirements:
+
+```{r}
+df <- data.frame(Date = as.Date("2023-09-01", format = "%Y-%m-%d"), MissionDate = as.Date("2023-09-02", format = "%Y-%m-%d"), Hour = 5, SonarCode = "A1", SonarAim = "Aim1", SonarBin = "Bin1", Up.0to5 = 5, Dn.0to5 = 1, Up.5to10 = NA, Dn.5to10 = NA, MinsCounted = 5)
+df
+```
+
+2. Qualark requirements:
+
+***Under construction*** Need to decide input when getting back into this data based on database output.
+
+```{r}
+df <- data.frame(Date = as.Date("2023-09-01", format = "%Y-%m-%d"), Hour = 5, SonarBin = "Bin1", SonarBank = "Left Bank", Up = 5, Down = 3, Duration = 20)
+df
+```
+
+### Hydroacoustic Lengths
+
+At Mission, hydroacoustic lengths are taken for 20 fish, every three hours in each sonar Aim, Bin, and Bank. Sonar bins 1-3 are measured, with distances further than that unreliable for length measurement. Similarly, at Qualark, measurement lengths follow the same process but for 2 distance bins, and a single aim due to a target roll angle of 35 degrees.
+
+1. Mission requirements (order does not matter):
+
+```{r}
+df <- data.frame(Date = as.Date("2023-09-01", format = "%Y-%m-%d"), MissionDate = as.Date("2023-09-02", format = "%Y-%m-%d"), Hour = 5, SonarCode = "A1", SonarAim = "Aim1", SonarBin = "Bin1", EnterTheta.deg = 7.5, R.m = 6.3, L.cm = 55.1)
+df
+```
+
+2. Qualark requirements:
+
+***Under construction*** Need to decide input when getting back into this data based on database output.
+
+```{r}
+df <- data.frame(Date = as.Date("2023-09-01", format = "%Y-%m-%d"), Hour = 5, SonarBin = "Bin1", Bank = "Left Bank", R.m = 6.3, L.cm = 55.1)
+df
+```
+
+Additional columns can be added here as covariates for a linear model of the species proportions. We will naturally add `"day"` and `"SonarAimf"` which creates a factor of the sonar aim with Aim3 referring to all aims that are not aim 1/2 near shore on left bank.
+
+### Test Fishery Catches
+
+At Mission, the Whonnock test fishery operates just downstream of the site. A gillnet does two sets at the daytime high tide (targets the larger tide) for 30 minutes each. The number of sockeye, pink salmon, jack Chinook and adult Chinook are counted as either gilled or tangled. Additionally, fork lengths are also recorded. For counts, the raw data are combined for the day, with the setStart referring to the time the first net is set `"FE_NET_START_OUT_DTT"`.
+
+1. Mission requirements (order does not matter):
+
+```{r}
+df <- data.frame(TRIP_DTT = as.Date("2023-09-01", format = "%Y-%m-%d"), setStart = "2023-09-01 11:54:00", nSets = 2, `Pink All Gilled` = 5, `Pink All Tangled` = 7, 
+  `Sockeye Adult Gilled` = 7, `Sockeye Adult Tangled` = 3,
+  `Chinook Jack Gilled` = 0, `Chinook Jack Tangled` = 1,
+  `Chinook Adult Gilled` = 2, `Chinook Adult Tangled` = 3)
+df
+```
+
+## Estimating Species Composition
+
+As we get closer to final test version, I will build a wrapper function that does a lot of the following steps as a single run. For now this section shows all the detailed control that is currently available.
+
+The species composition model operates through an R6 object called `speciesCompSummary`. To create a new version,
+
+```{r, echo = TRUE}
+speciesComp <- speciesCompSummary$new(
+            species = c("largeresident", "jackchinook", "sockeye", "adultchinook"), 
+            site = "Mission", estDate = "2023-08-05", ndays = 1)
+```
+
+We set the species we are interested in, the date we want to estimate the number of days previous to include, and the site, which informs the model how to do data processing and whether to use a roll angle or not. Site cannot be changed later, but dates and species can be.
+
+The steps do do analysis are the following:
+
+::: {}
+1. Process data (counts and lengths) that we will use for analysis `processData`.
+1. Set Date and the number of days to use for analysis `setDate`.
+1. Set the species that we are interested in `setSpecies`.
+1. Choose mean and standard deviation of lengths for different species `setSpeciesLengths`.
+1. Setup the linear models for proportions of each species `setModelProportions`.
+1. Choose what kind of length adjustments to do (e.g. beam width correction) `setLengthAdjustment`.
+1. Choose which parameters are fixed and which should be estimated `setModelParameters`.
+1. Choose how to penalize different parameters `setPriors`.
+1. Control optimization for the EM algorithm `setPriors`.
+1. Fit the model using the EM algorithm `fitModel`.
+:::
+
+The first step is to do data processing. For testing, the object will take in a full year of data to avoid doing data processing multiple times when running the model over a larger time period. It also makes it easy to test different versions of the model, such as the number of days etc.
+
+```{r, echo = TRUE}
+speciesComp$processData(sonarCounts, sonarLengths, testFisheryCounts)
+```
+
+We can then explicitly choose, and/or change the date and the species we will use for analysis of that day, as well as the number of days.
+
+```{r, echo = TRUE}
+speciesComp$setDate(estDate = "2023-08-10", ndays = 3)
+speciesComp$setSpecies(species = c("largeresident", "jackchinook", "sockeye",
+                                   "smalladultchinook",  "largeadultchinook"))
+```
+
+### Prior Species Lengths
+
+To choose mean and standard deviation of each species lengths, we use `setSpeciesLengths`. We can provide our own values, or use test fishery lengths. In particular, we will use the test fishery data to differentiate jack/small/large Chinook. The test fishery data should have columns,
+
+```{r}
+df <- data.frame(Date = as.Date("2023-09-01", format = "%Y-%m-%d"),  FL.cm = 58.5, Species = "Sockeye")
+df
+```
+
+We can then choose each species length values by,
+```{r, echo = TRUE}
+speciesComp$setSpeciesLengths(mu = c("largeresident" = 42), 
+                              sigma = c("largeresident" = 2.25), 
+                              testFisheryLengths = testFisheryLengths, ndays = 10)
+
+speciesComp$parameters$mu
+speciesComp$parameters$sigma
+speciesComp$parameters$muChin
+speciesComp$parameters$sigmaChin
+speciesComp$parameters$pChin
+```
+
+### Modelling Proportions
+
+Here is where we set the actual analysis data for a specific date. The function `setModelProportions` allows us to control the linear model for modelling the covariate effect on species composition. By default we assume that they are all the same.
+
+```{r, echo = TRUE}
+speciesComp$setModelProportions()
+```
+
+### Length Adjustments
+
+If we believe that there are biases in the hydroacoustic length measurements, then here is where to set the correction. We consider two main types of corrections, either for beam spreading, or using a beam spreading correction for each sonar bin.
+
+
+Beam width adjustment is included by:
+```{r, echo = TRUE}
+speciesComp$setLengthAdjustment(formula = ~ beamWidth.cm, adjustLengths = TRUE)
+```
+Note that `beamWidth.cm` is a column generated automatically when calling `processData`. To adjust by sonar bin:
+```{r, echo = TRUE}
+speciesComp$setLengthAdjustment(formula = ~ -1 + SonarBin, adjustLengths = TRUE)
+```
+
+At the same time it is fine to choose to not adjust lengths `adjustLengths = FALSE`.
+
+### Model Parameter Setup
+
+Parameters to fix.
+
+### Choosing Priors/Penalties
+
+Can include Jacobians if we want posterior mode. For me there is some preference to do this...
+
+### Controlling Optimization
+
+
+### Model Fitting
+
+EM Algorithm and how it works...
