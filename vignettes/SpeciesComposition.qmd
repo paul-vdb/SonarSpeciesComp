@@ -206,12 +206,12 @@ This removes the somewhat arbitrary definition of a jack Chinook being < 50 cm s
 $$
 f(x|z=K) = p_1f(x|\text{jack}) + p_2f(x|\text{smalladult}) + p_3f(x|\text{largeadult}),
 $$
-such that $\sum p_i = 1$. For estimation purposes, we reformulate this as,
+such that $p_1 + p_2 + p_3 = 1$. For estimation purposes, we reformulate this as,
 
 $$
-f(x|z=K) = pf(x|\text{jack}) + (1-p)(af(x|\text{smalladult}) + (1-a)f(x|\text{largeadult})),
+  f(x|z=K) = pf(x|\text{jack}) + (1-p)(af(x|\text{smalladult}) + (1-a)f(x|\text{largeadult})),
 $$
-where $a$ is the proportion of small adults in the population based on the test fishery data, or prior knowledge. It is not a parameter to be estimated in the model. However, $p$, the proportion of Chinook that are jack can either be fitted or fixed based on the test fishery data or prior knowledge. We think it is much more likely that we can strongly set a prior on $p$ that is biologically relevant than relative to the non-Chinook, given that we don't expect more than 10\% of Chinook to be jack at any time. The amount of large Chinook then help us differentiate jack Chinook from large resident fish or pink salmon.
+where $a$ is the proportion of small adults of adult Chinook in the population based on the test fishery data, or prior knowledge. It is not a parameter to be estimated in the model. However, $p$, the proportion of Chinook that are jack can either be fitted or fixed based on the test fishery data or prior knowledge. We think it is much more likely that we can strongly set a prior on $p$ that is biologically relevant than relative to the non-Chinook, given that we don't expect more than 10\% of Chinook to be jack at any time. The amount of large Chinook then help us differentiate jack Chinook from large resident fish or pink salmon.
 
 ### Modelling Proportions
 
@@ -232,7 +232,7 @@ Beam width adjustment is included by:
 ```{r, echo = TRUE}
 speciesComp$setLengthAdjustment(formula = ~ beamWidth.cm, adjustLengths = TRUE)
 ```
-Note that `beamWidth.cm` is a column generated automatically when calling `processData`. To adjust by sonar bin:
+Note that `beamWidth.cm` is a column generated automatically when calling `processData`. To adjust by sonar bin, the user may also choose:
 ```{r, echo = TRUE}
 speciesComp$setLengthAdjustment(formula = ~ -1 + SonarBin, adjustLengths = TRUE)
 ```
@@ -245,6 +245,7 @@ At the same time it is fine to choose to not adjust lengths `adjustLengths = FAL
 speciesComp$setModelParameters(fixedParameters = c("mu", "sigma", "muChinook", "sigmaChinook"),
   parameterValues = list(beta = c(0, 3, 7), sigma0 = 5), testFisheryWeights = 200)
 ```
+
 ### Choosing Priors/Penalties
 
 ```{r, echo = TRUE}
@@ -260,7 +261,7 @@ speciesComp$setPriors(priors = list(
 ### Controlling Optimization
 
 ```{r, echo = TRUE}
-speciesComp$controlOptimization(verbose = TRUE)
+speciesComp$controlOptimization(verbose = TRUE, tolerance = 1e-8)
 ```
 
 ### Model Fitting
@@ -270,3 +271,11 @@ EM Algorithm and how it works...
 ```{r, echo = TRUE}
 speciesComp$fitModel()
 ```
+
+### Notes for Paul
+
+::: {}
+1. salmon passage by bin next input to create daily estimates (inputs are: how to do offshore (tangled/gilled) etc., plus how to expand from bin 2/3). Chinook Pink spread sheet.
+1. clipboard copy of estimates from markdown report.
+1. Check out impact of bin 2 depth profile on fish passage at distance. (e.g. make a nice plot showing the position of the sonar and the relative fish passage at each bin on each sonar). Sonar position is in column B or Cross River Flux.
+:::

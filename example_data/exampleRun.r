@@ -13,7 +13,9 @@ source("../R/simulate.r")
 library(tidyverse)
 library(readxl)
 setwd("C:/Users/vandambatesp/Documents/GitHub/SonarSpeciesComp/R")
-sonarLengths <- read.csv("../example_data/2023MergedLengths_new35cmonly_Oct2024.csv")
+# sonarLengths <- read.csv("../example_data/2023MergedLengths.csv")
+sonarLengths <- read.csv("../example_data/2023MergedLengths.csv")
+# sonarLengths <- read.csv("../example_data/2023MergedLengths_new35cmonly_Oct2024.csv")
 sonarCounts <- read.csv("../example_data/SONARMERGE export_2023.csv")
 testFisheryCounts <- read_excel("../example_data/2023_WhonnockSpeciesComposition.xlsx")
 driftTimes <- read_excel("../example_data/Whonnock Drift Times.xlsx")
@@ -31,10 +33,17 @@ testFisheryLengths <- pssalmon %>% mutate(Species = ifelse(Species == "S", "Sock
   mutate(FL.cm = Fork/10, POF.cm = POF/10, POH.cm = POH/10) %>% 
   filter(!is.na(Date) & format(Date, "%Y") == "2023")
 
+salmonCounts <- read_excel("../example_data/Chinook and Pinks_2023.xlsx", skip = 4, sheet = "2. Salmon Passage by Bin")
+salmonCounts <- salmonCounts %>% 
+  rename(SelectedMethod = `...2`, "LB_BIN1_AIM1" = `Bin 1 Aim 1`, "LB_BIN1_AIM2" = `Bin 1 Aim 2`, "LB_BIN1" = `Bin 1...5`, "LB_BIN2" = `Bin 2...6`) %>%
+  rename("LB_BIN3" = `Bin 3...7`, "LB_BIN4" = `Bin 4...8`, "LB_BIN5" = `Bin 5...9`,  "LB_BIN6" = `Bin 6...10`, "Offshore" = `...11`) %>%
+  rename("RB_BIN4" = `Bin 4...12`, "RB_BIN3" = `Bin 3...13`, "RB_BIN2" = `Bin 2...14`, "RB_BIN1" = `Bin 1...15`) %>%
+  mutate(MissionDate = as.Date(`Mission Date`)) %>% select(-contains(".."), - `Mission Date`)
+
 ##------------------------------------------------------------------------------------
 
 speciesComp <- speciesCompSummary$new(species = c("largeresident", "jackchinook", "sockeye", "adultchinook"), site = "Mission", estDate = "2023-08-05")
-speciesComp$processData(sonarCounts, sonarLengths, testFisheryCounts) ## Process all data:
+speciesComp$processData(sonarCounts, sonarLengths, testFisheryCounts, salmonPassageTable = salmonCounts) ## Process all data:
 speciesComp$setDate("2023-08-10", 3)
 speciesComp$controlOptimization(verbose = TRUE)
 
@@ -103,36 +112,40 @@ sonarLengths %>%
 ## HMC Version:
 ###########################################################
 speciesComp <- speciesCompSummary$new(
-            species = c("largeresident", "jackchinook", "sockeye", "adultchinook"), 
+            species = c("smallresident", "largeresident", "jackchinook", "sockeye", "adultchinook"), 
             site = "Mission", estDate = "2023-08-05")
-speciesComp$processData(sonarCounts, sonarLengths, testFisheryCounts) ## Process all data:
+speciesComp$processData(sonarCounts, sonarLengths, testFisheryCounts, salmonPassageTable = salmonCounts) ## Process all data:
 speciesComp$setDate(estDate = "2023-08-10", ndays = 3)
 
 speciesComp$setDate("2023-08-05")
-speciesComp$setSpecies(species = c("largeresident", "jackchinook", "sockeye", "smalladultchinook", "largeadultchinook"))
+# speciesComp$setSpecies(species = c("largeresident", "jackchinook", "sockeye", "smalladultchinook", "largeadultchinook"))
 speciesComp$setSpeciesLengths(testFisheryLengths = testFisheryLengths, ndays = 10)
-speciesComp$setSpeciesLengths(mu = c("largeresident" = 42), 
-                              sigma = c("largeresident" = 2.25), 
+speciesComp$setSpeciesLengths(mu = c("smallresident" = 22.5, "largeresident" = 35), 
+                              sigma = c("smallresident" = 3, "largeresident" = 2.25), 
                               testFisheryLengths = testFisheryLengths, ndays = 10)
 
-speciesComp$setModelProportions(formula = list("sockeye" = ~ -1 + factor(day):SonarBank:SonarBin + factor(day):SonarAimF, 
-                                        "largeresident" = ~ -1 + factor(day):SonarBank:SonarBin + factor(day):SonarAimF)
+speciesComp$setModelProportions(formula = list("sockeye" = ~ -1 + factor(day):stratum, 
+                                        "largeresident" = ~ -1 + factor(day):stratum)
                                 )
-# speciesComp$setLengthAdjustment(formula = ~ beamWidth.cm, adjustLengths = TRUE)
-speciesComp$setLengthAdjustment(formula = ~ -1 + SonarBin, adjustLengths = TRUE)
+speciesComp$setLengthAdjustment(formula = ~ beamWidth.cm, adjustLengths = TRUE)
+# speciesComp$setLengthAdjustment(formula = ~ -1 + SonarBin, adjustLengths = TRUE)
 
 speciesComp$setModelParameters(fixedParameters = c("mu", "sigma", "muChinook", "sigmaChinook"),
-  parameterValues = list(beta = c(0, 3, 7), sigma0 = 5), testFisheryWeights = 200)
+  parameterValues = list(beta = c(0, 0.5), sigma0 = 5), testFisheryWeights = 200)
 
 speciesComp$setPriors(priors = list(
-  beta = function(x){sum(dnorm(x, c(0, 5, 9), c(0.1, 0.1, 0.1), log = TRUE))}, 
-  sigma0 =  function(x){sum(dgamma(x, 1, 0.2, log = TRUE) + log(x))},
+  # beta = function(x){sum(dnorm(x, c(0, 5, 9), c(0.1, 0.1, 0.1), log = TRUE))}, 
+  beta = function(x){sum(dnorm(x, c(0, 0.7), c(0.1, 0.1), log = TRUE))}, 
+  sigma0 =  function(x){sum(dnorm(x, 2, 0.1, log = TRUE) + log(x))},
   catchability =  function(x){sum(dnorm(x, c(0.25, 0.5), c(0.3, 0.01), log = TRUE) + log(x))},
   alpha =  function(x){sum(dnorm(x, 0, 10, log = TRUE))},
-  alphaJackChinook = function(x){sum(dnorm(x, -3, 0.1, log = TRUE))}
+  alphaJackChinook = function(x){sum(dnorm(x, -2, 0.1, log = TRUE))}
   ))
 speciesComp$controlOptimization(verbose = TRUE)
 speciesComp$fitModel()
+speciesComp$plot()
+
+p1 <- speciesComp$estimatedDailyProportions
 
 tru.params <- speciesComp$estimatedParameters
 tru.p <- speciesComp$estimatedDailyProportions

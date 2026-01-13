@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 <meta name="author" content="Paul van Dam-Bates">
-<meta name="dcterms.date" content="2026-01-06">
+<meta name="dcterms.date" content="2026-01-08">
 <meta name="description" content="An overview of how to estimate species composition using SonarSpeciesComp.">
 
 <title>Estimating Species Composition</title>
@@ -3059,7 +3059,7 @@ vertical-align: -.125em;
     <div>
     <div class="quarto-title-meta-heading">Published</div>
     <div class="quarto-title-meta-contents">
-      <p class="date">January 6, 2026</p>
+      <p class="date">January 8, 2026</p>
     </div>
   </div>
   
@@ -3211,10 +3211,10 @@ f(x|z=K) = pf(x|\text{jack}) + (1-p)f(x|\text{adult}).
 <p>This removes the somewhat arbitrary definition of a jack Chinook being &lt; 50 cm so that a Chinook can be any size, with a small proportion of them being very small. However, if there is even more heterogeneity in Chinook size, we can add an additional group (jack, small adult, large adult), so that</p>
 <p><span class="math display">\[
 f(x|z=K) = p_1f(x|\text{jack}) + p_2f(x|\text{smalladult}) + p_3f(x|\text{largeadult}),
-\]</span> such that <span class="math inline">\(\sum p_i = 1\)</span>. For estimation purposes, we reformulate this as,</p>
+\]</span> such that <span class="math inline">\(p_1 + p_2 + p_3 = 1\)</span>. For estimation purposes, we reformulate this as,</p>
 <p><span class="math display">\[
-f(x|z=K) = pf(x|\text{jack}) + (1-p)(af(x|\text{smalladult}) + (1-a)f(x|\text{largeadult})),
-\]</span> where <span class="math inline">\(a\)</span> is the proportion of small adults in the population based on the test fishery data, or prior knowledge. It is not a parameter to be estimated in the model. However, <span class="math inline">\(p\)</span>, the proportion of Chinook that are jack can either be fitted or fixed based on the test fishery data or prior knowledge. We think it is much more likely that we can strongly set a prior on <span class="math inline">\(p\)</span> that is biologically relevant than relative to the non-Chinook, given that we don’t expect more than 10% of Chinook to be jack at any time. The amount of large Chinook then help us differentiate jack Chinook from large resident fish or pink salmon.</p>
+  f(x|z=K) = pf(x|\text{jack}) + (1-p)(af(x|\text{smalladult}) + (1-a)f(x|\text{largeadult})),
+\]</span> where <span class="math inline">\(a\)</span> is the proportion of small adults of adult Chinook in the population based on the test fishery data, or prior knowledge. It is not a parameter to be estimated in the model. However, <span class="math inline">\(p\)</span>, the proportion of Chinook that are jack can either be fitted or fixed based on the test fishery data or prior knowledge. We think it is much more likely that we can strongly set a prior on <span class="math inline">\(p\)</span> that is biologically relevant than relative to the non-Chinook, given that we don’t expect more than 10% of Chinook to be jack at any time. The amount of large Chinook then help us differentiate jack Chinook from large resident fish or pink salmon.</p>
 </section>
 </section>
 <section id="modelling-proportions" class="level3">
@@ -3232,7 +3232,7 @@ f(x|z=K) = pf(x|\text{jack}) + (1-p)(af(x|\text{smalladult}) + (1-a)f(x|\text{la
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb12"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>speciesComp<span class="sc">$</span><span class="fu">setLengthAdjustment</span>(<span class="at">formula =</span> <span class="sc">~</span> beamWidth.cm, <span class="at">adjustLengths =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
-<p>Note that <code>beamWidth.cm</code> is a column generated automatically when calling <code>processData</code>. To adjust by sonar bin:</p>
+<p>Note that <code>beamWidth.cm</code> is a column generated automatically when calling <code>processData</code>. To adjust by sonar bin, the user may also choose:</p>
 <div class="cell" data-layout-align="center">
 <div class="sourceCode cell-code" id="cb13"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>speciesComp<span class="sc">$</span><span class="fu">setLengthAdjustment</span>(<span class="at">formula =</span> <span class="sc">~</span> <span class="sc">-</span><span class="dv">1</span> <span class="sc">+</span> SonarBin, <span class="at">adjustLengths =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
@@ -3260,7 +3260,7 @@ f(x|z=K) = pf(x|\text{jack}) + (1-p)(af(x|\text{smalladult}) + (1-a)f(x|\text{la
 <section id="controlling-optimization" class="level3">
 <h3 class="anchored" data-anchor-id="controlling-optimization">Controlling Optimization</h3>
 <div class="cell" data-layout-align="center">
-<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>speciesComp<span class="sc">$</span><span class="fu">controlOptimization</span>(<span class="at">verbose =</span> <span class="cn">TRUE</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+<div class="sourceCode cell-code" id="cb16"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>speciesComp<span class="sc">$</span><span class="fu">controlOptimization</span>(<span class="at">verbose =</span> <span class="cn">TRUE</span>, <span class="at">tolerance =</span> <span class="fl">1e-8</span>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 </div>
 </section>
 <section id="model-fitting" class="level3">
@@ -3272,6 +3272,16 @@ f(x|z=K) = pf(x|\text{jack}) + (1-p)(af(x|\text{smalladult}) + (1-a)f(x|\text{la
 <span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; ===</span></span>
 <span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; number of iterations = 41 </span></span>
 <span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Convergence was evaluated based on the difference of the log likelihood: 8.629286e-09 .</span></span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
+</div>
+</section>
+<section id="notes-for-paul" class="level3">
+<h3 class="anchored" data-anchor-id="notes-for-paul">Notes for Paul</h3>
+<div>
+<ol type="1">
+<li>salmon passage by bin next input to create daily estimates (inputs are: how to do offshore (tangled/gilled) etc., plus how to expand from bin 2/3). Chinook Pink spread sheet.</li>
+<li>clipboard copy of estimates from markdown report.</li>
+<li>Check out impact of bin 2 depth profile on fish passage at distance. (e.g. make a nice plot showing the position of the sonar and the relative fish passage at each bin on each sonar). Sonar position is in column B or Cross River Flux.</li>
+</ol>
 </div>
 </section>
 </section>

@@ -120,3 +120,33 @@ findGlobalMode <- function(x, xrange = NULL, ...) {
 
 ## Not in Base R? Really...
 is.Date <- function(x) inherits(x, 'Date')
+
+
+## Taken from plotrix for the weighted histogram, reworked for this pacakge.
+histplot <- function(x, wgts, range = c(35, 120), delta = 2, ylim = NA, xlim = NA, xlab = NA, ...){
+    if (missing(x)) 
+        stop("Must pass a value to x.")
+    if (missing(wgts)) 
+        wgts <- rep(1, length(x))
+    extra <- delta - diff(range) %% delta
+    if(extra != 0) range <- range + c(-extra/2, extra/2)
+    n <- diff(range)/delta
+    breaks <- seq(range[1], range[2], by = delta)
+    
+    counts <- NULL
+    for ( bin in 1:(length(breaks)-1) ){
+      counts <- c(counts, sum(wgts[x >= breaks[bin] & x < breaks[bin + 1]]))
+    }
+    density <- counts/sum(counts)
+    width <- rep(delta, length(density))
+    density <- density/width
+    
+    if (is.na(ylim)) ylim <- c(0, 1.1 * max(density, na.rm = TRUE))
+    if (is.na(xlab)) xlab = "Fish Length (cm)"
+    mids <- barplot(density, width =  width, col = "grey", space = 0, 
+        ylim = ylim, ylab = "Density", xlab = xlab, ...)
+    tickpos <- c(mids - width/2, mids[length(mids)] + width[length(width)]/2)
+    axis(1, at = tickpos, labels = signif(breaks, 3))
+    return(range)
+}
+

@@ -332,18 +332,20 @@ runEMAlgorithm <- function(speciesComp, simulatedData = FALSE){
   N <- matrix(0, nrow = np, ncol = K)
   for( i in 1:np ) {
     p[i, 1:(K0+1)] <- expitM(logitp[i,])  
-    p[i, (K0+1):K ] <- p[i, (2+1)]*c(pjack[i], (1-pjack[i])*parsFit$pAdultChinook)    
-    N[i,] <- p[i,] * speciesComp$analysisData$predDF$SalmonCount[i]
+    p[i, (K0+1):K ] <- p[i, (K0+1)] * c(pjack[i], (1-pjack[i])*parsFit$pAdultChinook) 
+    N[i,] <- p[i,] * speciesComp$analysisData$predDF$SalmonCount[i]/speciesComp$analysisData$predDF$MinsCounted[i] # Count or SalmonCount here????? Think about it a bit more...
   }
   ## A lot of work to not have a tidy dependence...
-  form <- paste0("cbind(", paste(speciesComp$species, collapse = ","), ") ~ SonarBank + SonarBin + SonarAim + day")
+  form <- paste0("cbind(", paste(speciesComp$species, collapse = ","), ") ~ Date + SonarBank + SonarBin + SonarAim + day")
+  counts <- speciesComp$analysisData$predDF |> aggregate(cbind(Count = Count/MinsCounted*60, SalmonCount = SalmonCount/MinsCounted*60, NHour = 1) ~ Date + SonarBank + SonarBin + SonarAim + day, sum)
   colnames(N) <- speciesComp$species
   estimatedProp <- cbind(speciesComp$analysisData$predDF, N)
   estimatedProp <- estimatedProp |> aggregate(as.formula(form), sum)
   estimatedProp[, speciesComp$species] <- t(apply(estimatedProp[, speciesComp$species], 1, FUN = function(x){x/sum(x)}))
+  estimatedProp <- counts |> merge(estimatedProp)
   speciesComp$estimatedDailyProportions <- estimatedProp
   colnames(p) <- speciesComp$species
-  hourlyPredDF <- cbind(speciesComp$analysisData$predDF[, c("Date", "day", "SonarBank", "SonarAim", "SonarBin", "Hour", "HourOrder", "SalmonCount")], p)
+  hourlyPredDF <- cbind(speciesComp$analysisData$predDF[, c("Date", "day", "SonarBank", "SonarAim", "SonarBin", "Hour", "HourOrder", "MinsCounted", "Count", "SalmonCount")], p)
   speciesComp$estimatedHourlyProportions <- hourlyPredDF
 }
 
