@@ -112,38 +112,44 @@ sonarLengths %>%
 ## HMC Version:
 ###########################################################
 speciesComp <- speciesCompSummary$new(
-            species = c("smallresident", "largeresident", "jackchinook", "sockeye", "adultchinook"), 
-            site = "Mission", estDate = "2023-08-05")
+            species = c("smallresident", "largeresident", "jackchinook", "sockeye", "pink", "adultchinook"), 
+            site = "Mission", estDate = "2023-09-05")
 speciesComp$processData(sonarCounts, sonarLengths, testFisheryCounts, salmonPassageTable = salmonCounts) ## Process all data:
 speciesComp$setDate(estDate = "2023-08-10", ndays = 3)
 
-speciesComp$setDate("2023-08-05")
+speciesComp$setDate("2023-09-01")
 # speciesComp$setSpecies(species = c("largeresident", "jackchinook", "sockeye", "smalladultchinook", "largeadultchinook"))
-speciesComp$setSpeciesLengths(testFisheryLengths = testFisheryLengths, ndays = 10)
-speciesComp$setSpeciesLengths(mu = c("smallresident" = 22.5, "largeresident" = 35), 
-                              sigma = c("smallresident" = 3, "largeresident" = 2.25), 
+speciesComp$setSpeciesLengths(mu = c("smallresident" = 23.5, "largeresident" = 35, "pink" = 48, "jackchinook" = 40), 
+                              sigma = c("smallresident" = 3, "largeresident" = 2.25, "pink" = 3.25, "jackchinook" = 2.5),
                               testFisheryLengths = testFisheryLengths, ndays = 10)
 
-speciesComp$setModelProportions(formula = list("sockeye" = ~ -1 + factor(day):stratum, 
-                                        "largeresident" = ~ -1 + factor(day):stratum)
+speciesComp$setModelProportions(formula = list("sockeye" = ~ -1 + factor(day):stratum,# + SonarBank:SonarBin:SonarAimF, 
+                                        "largeresident" = ~ -1 + factor(day):stratum,# + SonarBank:SonarBin:SonarAimF,
+                                        "smallresident" = ~ -1 + factor(day):stratum,# + SonarBank:SonarBin:SonarAimF,
+                                        "pink" = ~ -1 + factor(day):stratum,# + SonarBank:SonarBin:SonarAimF,
+                                        "jackchinook" = ~ 1)
                                 )
-speciesComp$setLengthAdjustment(formula = ~ beamWidth.cm, adjustLengths = TRUE)
-# speciesComp$setLengthAdjustment(formula = ~ -1 + SonarBin, adjustLengths = TRUE)
+# speciesComp$setLengthAdjustment(formula = ~ beamWidth.cm, adjustLengths = TRUE)
+speciesComp$setLengthAdjustment(formula = ~ -1 + SonarBin, adjustLengths = TRUE)
 
 speciesComp$setModelParameters(fixedParameters = c("mu", "sigma", "muChinook", "sigmaChinook"),
-  parameterValues = list(beta = c(0, 0.5), sigma0 = 5), testFisheryWeights = 200)
+  parameterValues = list(beta = c(0, 4, 8), sigma0 = 5), testFisheryWeights = 200)
 
 speciesComp$setPriors(priors = list(
-  # beta = function(x){sum(dnorm(x, c(0, 5, 9), c(0.1, 0.1, 0.1), log = TRUE))}, 
-  beta = function(x){sum(dnorm(x, c(0, 0.7), c(0.1, 0.1), log = TRUE))}, 
+  beta = function(x){sum(dnorm(x, c(0, 5, 9), c(0.1, 0.1, 0.1), log = TRUE))}, 
+  # beta = function(x){sum(dnorm(x, c(0, 0.7), c(0.1, 0.1), log = TRUE))}, 
   sigma0 =  function(x){sum(dnorm(x, 2, 0.1, log = TRUE) + log(x))},
-  catchability =  function(x){sum(dnorm(x, c(0.25, 0.5), c(0.3, 0.01), log = TRUE) + log(x))},
+  catchability =  function(x){sum(dnorm(x, c(0.1, 0.25, 0.5), c(0.1, 0.3, 0.01), log = TRUE) + log(x))},
   alpha =  function(x){sum(dnorm(x, 0, 10, log = TRUE))},
   alphaJackChinook = function(x){sum(dnorm(x, -2, 0.1, log = TRUE))}
   ))
 speciesComp$controlOptimization(verbose = TRUE)
 speciesComp$fitModel()
 speciesComp$plot()
+speciesComp$plot(day = 3)
+
+## Are Pink salmon reasonably symmetric??? Or should we use a skewed distribution?
+
 
 p1 <- speciesComp$estimatedDailyProportions
 

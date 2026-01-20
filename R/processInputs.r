@@ -402,10 +402,10 @@ setSpeciesLengths <- function(speciesComp, mu = NULL, sigma = NULL, pChin = NULL
 
   ## Add in user supplied values:
   mu_[grep("chinook", names(mu), value = TRUE, invert = TRUE)] <- mu[grep("chinook", names(mu), value = TRUE, invert = TRUE)]
-  sigma_[grep("chinook", names(mu), value = TRUE, invert = TRUE)] <- sigma[grep("chinook", names(mu), value = TRUE, invert = TRUE)]  
+  sigma_[grep("chinook", names(sigma), value = TRUE, invert = TRUE)] <- sigma[grep("chinook", names(mu), value = TRUE, invert = TRUE)]  
   muChin_[grep("chinook", names(mu), value = TRUE)] <- mu[grep("chinook", names(mu), value = TRUE)]
-  sigmaChin_[grep("chinook", names(mu), value = TRUE)] <- sigma[grep("chinook", names(mu), value = TRUE)]  
-  pChin_[grep("chinook", names(mu), value = TRUE)] <- pChin
+  sigmaChin_[grep("chinook", names(sigma), value = TRUE)] <- sigma[grep("chinook", names(mu), value = TRUE)]  
+  pChin_[grep("chinook", names(pChin), value = TRUE)] <- pChin
 
   ## Now if test fishery lengths are present use those to infill mu and sigma:
   if(!is.null(testFisheryLengths)){
@@ -433,12 +433,12 @@ setSpeciesLengths <- function(speciesComp, mu = NULL, sigma = NULL, pChin = NULL
       }
       
       if("chinook" == sppNames[i]){
-        nchin <- length(pChin_)      
+        nchin <- length(pChin_)
         capture.output(fit <- mixtools::normalmixEM(x, lambda = pChin_[-nchin], mu = muChin_, sigma = sigmaChin_))
         ## Check that we captured jack chinook: 
         if(min(fit$mu) > 50){
            ## Make it more specific about how to actually set alternative.
-          cat("[Warning]  Unable to estimate jack Chinook from the test fishery data. Using default mean and variance.\n")
+          if(!"jackChinook" %in% names(mu)) cat("[Warning]  Unable to estimate jack Chinook from the test fishery data. Using default mean and variance.\n")
           if(any(speciesComp$species == "largeadultchinook")){
             capture.output(fit <- mixtools::normalmixEM(x[x > 50], lambda = pChin_[2], mu = muChin_[-1], sigma = sigmaChin_[-1]))
             ord <- order(fit$mu)
@@ -455,11 +455,15 @@ setSpeciesLengths <- function(speciesComp, mu = NULL, sigma = NULL, pChin = NULL
           sigmaChin_ <- fit$sigma[ord]
           pChin_ <- fit$lambda[ord]
         }
-        
+        ## If species are provided overwrite everything you just did.
+        muChin_[grep("chinook", names(mu), value = TRUE)] <- mu[grep("chinook", names(mu), value = TRUE)]
+        sigmaChin_[grep("chinook", names(sigma), value = TRUE)] <- sigma[grep("chinook", names(sigma), value = TRUE)]
+        pChin_[grep("chinook", names(pChin), value = TRUE)] <- pChin
+        pChin_ <- pChin_/sum(pChin_)
       }else{
         mu_[sppNames[i]] <- mean(x)
-        sigma_[sppNames[i]] <- sd(x)      
-      }      
+        sigma_[sppNames[i]] <- sd(x)
+      }
     }
   }
   
@@ -647,25 +651,26 @@ plotmix <- function(speciesComp, day = 1, includeProportionLabels = FALSE, Sonar
   sigmaChin <- exp(speciesComp$estimatedParameters$logsigmaChin)
   sigma0 <- exp(speciesComp$estimatedParameters$logsigma0)
   beta <- speciesComp$estimatedParameters$beta
-  
-  stratum <- unique(speciesComp$analysisData$lengthData$stratum)
+
+  dd <- speciesComp$estDate - day + 1
+  stratum <- speciesComp$analysisData$predDF |> subset(Date == dd, select = stratum)
+  stratum <- unique(stratum$stratum)
+
   if(!is.null(SonarBin)) stratum <- grep(SonarBin, stratum, value = TRUE)
   if(!is.null(SonarAim)) stratum <- grep(SonarAim, stratum, value = TRUE)
   if(!is.null(SonarBank)) stratum <- grep(SonarBank, stratum, value = TRUE)
 
-  d <- day
   nst <- length(stratum)
-  nst %% 2
   par(mfrow = c(ceiling(nst/2), 2))
-  for( s in stratum ){
-    dd <- speciesComp$estDate - d + 1
+  for( j in seq_along(stratum) ){
+    s <- stratum[j]
     keep <- speciesComp$analysisData$lengthData$Date == dd & speciesComp$analysisData$lengthData$stratum == s
     x <- speciesComp$analysisData$lengthData$L.cm.adj[keep] - speciesComp$analysisData$Xlength[keep,] %*% beta
     wgts <- speciesComp$analysisData$lengthData$weights[keep]
     p <- speciesComp$estimatedDailyProportions |> subset(paste(SonarBank, SonarBin, SonarAim, sep = "_") == s & Date == speciesComp$estDate - d + 1)
     if(nrow(p) > 1) stop("I've gotten confused and found more than one proportion that matches with the data.")
     
-    range <- histplot(x, wgts, xlab = "Fish Length (cm)", range = c(10, 100), main = paste(dd, gsub("_", " ", s)))
+    range <- histplot(x, wgts, xlab = "Fish Length (cm)", range = c(10, 110), main = paste(dd, gsub("_", " ", s)))
     col <- c("blue", "green")
     xx <- seq(range[1], range[2], by = 0.1)
     f <- numeric(length(xx))
@@ -706,5 +711,75 @@ plotmix <- function(speciesComp, day = 1, includeProportionLabels = FALSE, Sonar
       }
     }
     lines(xx-range[1], f, col = "black", lwd = 2, lty = 2)
+    if(j==1){
+      legend("topright", legend = speciesLabels(speciesComp$species), col = speciesColours(speciesComp$species), lty = rep(1, length(speciesComp$species)))
+    }
   }
+}
+
+calculateResiduals <- function(speciesComp){
+  ## Length Residuals:
+  pars <- speciesComp$estimatedParameters
+  mu <- pars$mu
+  muChin <- pars$muChin
+  ## Parameter Processing
+  Kchin <- length(muChin)
+  K0 <- length(mu)
+  K <- Kchin + K0
+  muc <- c(mu, muChin)
+  alpha <- pars$alpha
+  beta <- pars$beta
+  alphaJackChinook <- pars$alphaJackChinook
+  
+  ## Standard deviation incld. observation error
+  logsigma_ <- c(pars$logsigma, pars$logsigmaChin)
+  sigma <- sqrt(exp(2*logsigma_) + exp(2*pars$logsigma0))
+
+  ## Set up proportions. alpha parameter for predicting proportions. 
+  ## Xalpha is a list of design matrices for each species.
+  np <- nrow(speciesComp$analysisData$predDF)
+  logitp <- matrix(0, nrow = np, ncol = K0) ## +1 is Chinook.
+  indx0 <- 1
+  for( i in 1:K0 ){
+    nc <- ncol(speciesComp$analysisData$Xprop[[i]]) 
+    indx1 <- indx0 + nc - 1
+    logitp[,i] <- as.matrix(speciesComp$analysisData$Xprop[[i]]) %*% alpha[indx0:indx1]
+    indx0 <- indx1 + 1
+  }
+
+  logitpjack <- as.matrix(speciesComp$analysisData$XpropChin) %*% alphaJackChinook
+  pjack <- 1/(1+exp(-logitpjack))
+
+  p <- matrix(0, nrow = np, ncol = K)
+  for( i in 1:np ) {
+    p[i, 1:(K0+1)] <- expitM(logitp[i,])  
+    p[i, (K0+1):K ] <- p[i, (K0+1)]*c(pjack[i], (1-pjack[i])*pars$pAdultChinook)
+  }
+
+  if(speciesComp$adjustLengths){
+    L <- speciesComp$analysisData$lengthData$L.cm.adj - as.matrix(speciesComp$analysisData$Xlength) %*% beta
+  }else{
+    L <- speciesComp$analysisData$lengthData$L.cm.adj
+  }
+  wgts <- speciesComp$analysisData$lengthData$weights
+  pobs <- p[speciesComp$analysisData$lengthData$grpIndex,]
+  
+  id <- sapply(1:length(L), FUN = function(i){which.max(pobs[i,]*dnorm(L[i], muc, sigma))}) ## Definitely not this one.
+  residuals <- sapply(1:length(L), FUN = function(i){(L[i]-muc[id[i]])/sigma[id[i]]}) ## Definitely not this one.
+    
+  
+  speciesComp$analysisData$lengthData$residuals <- residuals
+  speciesComp$analysisData$lengthData$speciesid <- speciesComp$Species[id]
+    
+  boxplot(residuals ~ speciesid, data = speciesComp$analysisData$lengthData, xlab = "Species", ylab = "Residuals")
+  abline(h = 0, col = 'red')
+  qqnorm(residuals)
+  qqline(residuals)
+  plot(x = 1:length(L), y = residuals, xlab = "Index", ylab = "Residuals", cex = speciesComp$analysisData$lengthData$weights/(median(speciesComp$analysisData$lengthData$weights)))
+  abline(h = 0, col = 'red', lty = 1)
+  abline(h = c(-1.96, 1.96), col = 'red', lty = 2)
+
+  ## Can print what the 'outlier' values are.
+  speciesComp$analysisData$lengthData |> subset(abs(residuals) > 1.96)
+
 }
