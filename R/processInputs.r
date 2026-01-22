@@ -130,8 +130,8 @@ speciesCompSummary <- R6Class("SpeciesComp",
     setPriors = function(priors = list()){
       setPriors(self, priors = priors)
     },
-    predictSpeciesComposition = function(){
-      predictSpeciesComposition(self)
+    predictSpeciesComposition = function(proportionOffshore = NULL, salmonPassageTable = NULL, extrapolateBin = "Bin3"){
+      predictSpeciesComposition(self, proportionOffshore, salmonPassageTable, extrapolateBin)
     },
     plot = function(day = 1, includeProportionLabels = FALSE, SonarBin = NULL, SonarAim = NULL, SonarBank = NULL, ...){
       plotmix(self, day, includeProportionLabels, SonarBin, SonarAim, SonarBank, ...)
@@ -305,7 +305,7 @@ processMissionSalmonPassage = function(speciesComp, salmonPassageTable){
                      "LB_BIN3", "LB_BIN4", "LB_BIN5", "LB_BIN6", "Offshore", "RB_BIN4", "RB_BIN3",
                      "RB_BIN2", "RB_BIN1", "MissionDate")
 
-  namecheck <- which(!colNames %in% names(salmonPassageTable))
+  namecheck <- which(!grep("BIN4|BIN5|BIN6", colNames, invert = TRUE, value = TRUE) %in% names(salmonPassageTable))
   if(length(namecheck)) stop(paste0("We require column names in salmonPassageTable: ", paste(colNames[namecheck], collapse = ",")))
 
   namedf <- data.frame(grp = c("LB_BIN1_AIM1", "LB_BIN1_AIM2", "LB_BIN1", "LB_BIN2", "LB_BIN3", "LB_BIN4", "LB_BIN5", 
@@ -320,7 +320,7 @@ processMissionSalmonPassage = function(speciesComp, salmonPassageTable){
   if(!is.Date(salmonPassageTable$MissionDate)) salmonPassageTable$MissionDate <- as.Date(salmonPassageTable$MissionDate, format = "%m/%d/%Y")
   salmonPassageTable$Date <- salmonPassageTable$MissionDate
 
-  longSalmon <- do.call("rbind", lapply(namedf$grp, FUN = function(x){
+  longSalmon <- do.call("rbind", lapply(namedf$grp[namedf$grp %in% names(salmonPassageTable)], FUN = function(x){
     tab = cbind(salmonPassageTable[, c("SelectedMethod", "Date", "MissionDate", x)], "grp" = x); colnames(tab)[4] <-  "count"; tab
     }))
   longSalmon <- longSalmon |> subset(!is.na(count))
@@ -330,7 +330,10 @@ processMissionSalmonPassage = function(speciesComp, salmonPassageTable){
 
 ## Add Roxygen
 setModelProportions <- function(speciesComp, formula = list()){
-  pFormula <- extractControls(formula$all, ~ -1 + stratum:day)
+  if(speciesComp$ndays == 1)
+    pFormula <- extractControls(formula$all, ~ -1 + stratum)
+  else
+    pFormula <- extractControls(formula$all, ~ -1 + stratum:factor(day))
 
   ## Model Data:
   ndays <- speciesComp$ndays
@@ -354,28 +357,43 @@ setModelProportions <- function(speciesComp, formula = list()){
   for( i in seq_along(sppNames) ){
     sppi <- sppNames[i]
     formulai <- extractControls(formula[[sppi]], pFormula)
-    speciesComp$analysisData$Xprop[[sppi]] <- model.matrix(formulai, data =  predDF)
+    if(!all(all.vars(formulai) %in% names(predDF))) 
+      stop("Variables provided in formula are missing from the sonar lengths data. See 'obj$analysisData$lengthData' for potential variables.\n")
+    if(any(all.vars(formulai) %in% "day") & speciesComp$ndays == 1)
+      stop("Exclude 'day' from formula if using only one day of data.\n")      
+    speciesComp$analysisData$Xprop[[sppi]] <- model.matrix(formulai, data = predDF)
   }
   ## jackChinook model:
   formulajc <- extractControls(formula[["jackchinook"]], ~ 1) ## adult chinook or small/large adults will default to the same, minus input.
   speciesComp$analysisData$XpropChin <- model.matrix(formulajc, data = predDF)
+}
 
+addTestFishery <- function(speciesComp){
+  ndays <- speciesComp$ndays
+  dates_ <- seq(speciesComp$estDate - ndays + 1, speciesComp$estDate, 1)
   ## Add in test fishery counts if present:
   if(!is.null(speciesComp$testFisheryCounts)){
-    speciesComp$analysisData$testFisheryCounts <- speciesComp$testFisheryCounts |> 
+    testFisheryCounts <- speciesComp$testFisheryCounts |> 
                                                   subset(as.Date(Date) %in% dates_) |> 
                                                   subset(select = c(pink, sockeye, jackchinook, adultchinook))
     if(all(speciesComp$species != "pink")) 
-      speciesComp$analysisData$testFisheryCounts <- speciesComp$analysisData$testFisheryCounts |> 
-                                                    subset(select = c(-pink))
+      testFisheryCounts <- testFisheryCounts |> subset(select = c(-pink))
     if(all(speciesComp$species != "sockeye")) 
-      speciesComp$analysisData$testFisheryCounts <- speciesComp$analysisData$testFisheryCounts |> 
-                                                    subset(select = c(-sockeye))
+      testFisheryCounts <- testFisheryCounts |> subset(select = c(-sockeye))
     if(!any(grepl("chinook", speciesComp$species))) 
-      speciesComp$analysisData$testFisheryCounts <- speciesComp$analysisData$testFisheryCounts |> 
-                                                    subset(select = c(-jackchinook, -adultchinook))
+      testFisheryCounts <- testFisheryCounts |> subset(select = c(-jackchinook, -adultchinook))
+    
+    testFisheryCounts <- as.matrix(testFisheryCounts)
+
+    if(speciesComp$site == "Mission" & ndays > 1){
+      times <- speciesComp$testFisheryCounts |> subset(as.Date(Date) %in% dates_, select = setStart)
+      hours <- as.numeric(do.call('c',format(times, "%H")))
+      if(max(abs(diff(hours))) > 4) cat("[Warning]  The Whonnock Test Fishery data includes days that fish at very different times. Consider using fewer days, or just a single day.\n")
+    }
+  }else{
+    stop("Test Fishery Counts have not yet been added.")
   }
-  speciesComp$analysisData$testFisheryCounts <- as.matrix(speciesComp$analysisData$testFisheryCounts)
+  testFisheryCounts
 }
 
 setLengthAdjustment <- function(speciesComp, formula = ~ beamWidth.cm, adjustLengths = TRUE){
@@ -393,6 +411,9 @@ setSpeciesLengths <- function(speciesComp, mu = NULL, sigma = NULL, pChin = NULL
   sigma_ <- c("smallresident" = 2.5, "largeresident" = 2.5, "jackchinook" = 2.5, "pink" = 3, "sockeye" = 3.5, "adultchinook" = 7.5,"smalladultchinook" = 5, "largeadultchinook" = 6)
   pChin_ <- c("jackchinook" = 0.05, "adultchinook" = 0.95,"smalladultchinook" = 0.17, "largeadultchinook" = 0.78)
   
+  if(!all(names(mu) %in% speciesComp$species)) stop("Provided species mean size 'mu' that is not a current species or is spelled wrong.")
+  if(!all(names(sigma) %in% speciesComp$species)) stop("Provided species standard deviation 'sigma' that is not a current species or is spelled wrong.")
+  
   ## Subset for current species
   muChin_ <- mu_[grep("chinook", speciesComp$species, value = TRUE)]
   sigmaChin_ <- sigma_[grep("chinook", speciesComp$species, value = TRUE)]
@@ -402,9 +423,9 @@ setSpeciesLengths <- function(speciesComp, mu = NULL, sigma = NULL, pChin = NULL
 
   ## Add in user supplied values:
   mu_[grep("chinook", names(mu), value = TRUE, invert = TRUE)] <- mu[grep("chinook", names(mu), value = TRUE, invert = TRUE)]
-  sigma_[grep("chinook", names(sigma), value = TRUE, invert = TRUE)] <- sigma[grep("chinook", names(mu), value = TRUE, invert = TRUE)]  
+  sigma_[grep("chinook", names(sigma), value = TRUE, invert = TRUE)] <- sigma[grep("chinook", names(sigma), value = TRUE, invert = TRUE)]  
   muChin_[grep("chinook", names(mu), value = TRUE)] <- mu[grep("chinook", names(mu), value = TRUE)]
-  sigmaChin_[grep("chinook", names(sigma), value = TRUE)] <- sigma[grep("chinook", names(mu), value = TRUE)]  
+  sigmaChin_[grep("chinook", names(sigma), value = TRUE)] <- sigma[grep("chinook", names(sigma), value = TRUE)]  
   pChin_[grep("chinook", names(pChin), value = TRUE)] <- pChin
 
   ## Now if test fishery lengths are present use those to infill mu and sigma:
@@ -417,7 +438,10 @@ setSpeciesLengths <- function(speciesComp, mu = NULL, sigma = NULL, pChin = NULL
 
     testFisheryLengths$Date <- as.Date(testFisheryLengths$Date)
   
-    sppNames <- setdiff(grep("resident", speciesComp$species, invert = TRUE, value = TRUE), names(mu))
+    sppNames_mu <- setdiff(grep("resident", speciesComp$species, invert = TRUE, value = TRUE), names(mu))
+    sppNames_sigma <- setdiff(grep("resident", speciesComp$species, invert = TRUE, value = TRUE), names(sigma))
+    sppNames <- unique(c(sppNames_mu, sppNames_sigma))
+
     sppchin <- grep("chinook", sppNames)
     if(length(sppchin) > 0){
       sppNames <- sppNames[-sppchin]
@@ -433,15 +457,32 @@ setSpeciesLengths <- function(speciesComp, mu = NULL, sigma = NULL, pChin = NULL
       }
       
       if("chinook" == sppNames[i]){
+        jackvals <- NULL
         nchin <- length(pChin_)
         capture.output(fit <- mixtools::normalmixEM(x, lambda = pChin_[-nchin], mu = muChin_, sigma = sigmaChin_))
-        ## Check that we captured jack chinook: 
+        
+        if("smalladultchinook" %in% speciesComp$species){
+          mux <- sort(fit$mu)
+          if(mux[3] - mux[2] < 3) cat("[Warning] Difference between small and large adult chinook is", mux[3] - mux[2], " (model includes jack chinook). Suggest using only 'adultchinook'.\n")
+        }
+        ## Check that we captured jack chinook and use those for mu and sigma if requested.
         if(min(fit$mu) > 50){
            ## Make it more specific about how to actually set alternative.
-          if(!"jackChinook" %in% names(mu)) cat("[Warning]  Unable to estimate jack Chinook from the test fishery data. Using default mean and variance.\n")
+          if(!"jackchinook" %in% names(mu) |  !"jackchinook" %in% names(sigma)){ 
+            jx <- x[x < 50]
+            if(length(jx) < 5){
+              cat("[Warning]  Unable to estimate jack Chinook from the test fishery mixture model. Using default mean and/or variance.\n")
+            }else{ 
+              cat("[Warning]  Unable to estimate jack Chinook from the test fishery mixture model. Using lengths < 50 cm from test fishery.\n")
+              if(!"jackchinook" %in% names(mu)) muChin_["jackchinook"] <- mean(jx)
+              if(!"jackchinook" %in% names(sigma)) sigmaChin_["jackchinook"] <- sd(jx)
+            }
+          }
+          ## If fitting was not successful try a different approach for adult.
           if(any(speciesComp$species == "largeadultchinook")){
             capture.output(fit <- mixtools::normalmixEM(x[x > 50], lambda = pChin_[2], mu = muChin_[-1], sigma = sigmaChin_[-1]))
             ord <- order(fit$mu)
+            if(abs(diff(fit$mu)) < 3) cat("[Warning] Difference between small and large adult chinook is", mux[3] - mux[2], " (model excludes jack chinook). Suggest using only 'adultchinook'.\n")
             muChin_[c("smalladultchinook", "largeadultchinook")] <- fit$mu[ord]
             sigmaChin_[c("smalladultchinook", "largeadultchinook")] <- fit$sigma[ord]
             pChin_[c("smalladultchinook", "largeadultchinook")] <- (1-pChin_["jackchinook"]) * (fit$lambda[ord])
@@ -461,8 +502,8 @@ setSpeciesLengths <- function(speciesComp, mu = NULL, sigma = NULL, pChin = NULL
         pChin_[grep("chinook", names(pChin), value = TRUE)] <- pChin
         pChin_ <- pChin_/sum(pChin_)
       }else{
-        mu_[sppNames[i]] <- mean(x)
-        sigma_[sppNames[i]] <- sd(x)
+        if(!sppNames[i] %in% names(mu)) mu_[sppNames[i]] <- mean(x)
+        if(!sppNames[i] %in% names(sigma)) sigma_[sppNames[i]] <- sd(x)
       }
     }
   }
@@ -480,6 +521,10 @@ setModelParameters <- function(speciesComp, fixedParameters = c("mu", "sigma", "
   ## Another place to set length adjustment:
   if(!is.null(adjustLengths)) speciesComp$adjustLengths <- adjustLengths
   if(!is.null(includeTestFishery)) speciesComp$includeTestFishery <- includeTestFishery
+
+  if(speciesComp$includeTestFishery & is.null(speciesComp$analysisData$testFisheryCounts)){
+    speciesComp$analysisData$testFisheryCounts <- addTestFishery(speciesComp)
+  }
 
   if(speciesComp$site == "Mission") { 
     q <- c( "sockeye" = 0.33, "pink" = 0.16, "jackchinook" = 0.5)  ## From Yunbo's paper.
@@ -598,7 +643,7 @@ setModelParameters <- function(speciesComp, fixedParameters = c("mu", "sigma", "
   speciesComp$analysisData$testFisheryWeights <- testFisheryWeights
 }
 
-predictSpeciesComposition = function(speciesComp, proportionOffshore = NULL, salmonPassageTable = NULL){
+predictSpeciesComposition = function(speciesComp, proportionOffshore = NULL, salmonPassageTable = NULL, extrapolateBin = "Bin3"){
   if(is.null(speciesComp$salmonCounts) ){
     if(is.null(salmonPassageTable) & speciesComp$site == "Mission") stop("A salmonPassageTable needs to be provided to compute species composition at Mission.")
     if(speciesComp$site == "Mission") processMissionSalmonPassage(salmonPassageTable)
@@ -606,39 +651,36 @@ predictSpeciesComposition = function(speciesComp, proportionOffshore = NULL, sal
   if(!any(speciesComp$estDate %in% speciesComp$estimatedDailyProportions$Date)) stop("Must run 'fitModel' before trying to predict species composition for this date.")
   estimatedP <- speciesComp$estimatedDailyProportions
   estimatedP$SonarCode <- ifelse(estimatedP$SonarBank == "Left Bank", "A1", "A2")
+
+  estSpp <- speciesComp$species
+  if( any(speciesComp$species == "smalladultchinook") ){
+    estimatedP$adultchinook <- estimatedP$smalladultchinook + estimatedP$largeadultchinook
+    estimatedP$smalladultchinook <- NULL
+    estimatedP$largeadultchinook <- NULL
+    estSpp <- estSpp[-grep("adultchinook", estSpp)]
+    estSpp <- c(estSpp, "adultchinook")
+  }
   
+  ntest <- speciesComp$analysisData$testFisheryCounts
+  ptest <- data.frame(t(apply(ntest, 1, FUN = function(x){x/sum(x)})))
+  ptest <- cbind(Date = unique(estimatedP$Date), SonarBank = "Offshore", SonarBin = NA, SonarAim = NA, 
+    day = 1:speciesComp$ndays, Count = NA, SalmonCount = NA, NHour = 1, smallresident = 0, largeresident = 0, ptest, SonarCode = "mobile")
+  estimatedP <- rbind(estimatedP, ptest[, names(estimatedP)])
+  
+  salmon <- speciesComp$salmonCounts
   estimatedP$mergecode <- paste(estimatedP$SonarCode, estimatedP$SonarAim, estimatedP$SonarBin)
-  salmon$mergecode <- paste(salmon$SonarCode, salmon$SonarAim, salmon$SonarBin)
-  keep <- 
-  augmentdf <- salmon |> subset(!mergecode %in% estimatedP$mergecode & SonarAim != "Aim1+Aim2" & SonarBank != "Offshore")
-  augmentdf <- augmentdf |> aggregate( count ~ Date + SonarBank + SonarCode + SonarAim, FUN = sum)
-  if(any("Bin3" %in% estimatedP$SonarBin)){
-    augmentdf$SonarBin <- "Bin3"
+  if(any("Bin3" %in% estimatedP$SonarBin) & extrapolateBin == "Bin3"){
+    salmon$SonarBin[salmon$SonarBin %in% c("Bin3", "Bin4", "Bin5", "Bin6")] <- "Bin3"
   }else{
-    augmentdf$SonarBin <- "Bin2"
+    salmon$SonarBin[salmon$SonarBin %in% c("Bin3", "Bin4", "Bin5", "Bin6")] <- "Bin2"
   }
-  merge(augmentdf, augmentdf, by = c("Date", "SonarCode", "SonarBin", "SonarAim"), all.x = TRUE, suffixes = c("", "tmp"))
-  
-  ## Is Bin3 there? use it ow use Bin2.
-  ## Duplicate estimatedP for Extra Bins:
-  # augmentdf <- salmon |> 
-  # if(!any(estimatedp$SonarBin == "Bin3")) {
-  # for( i in c("Bin2")
-  # estimatedP
-
-  pTF <- speciesComp$testFisheryCounts |> subset(as.Date(Date) %in% estimatedP$Date)
-  
-  salmon <- speciesComp$salmonCounts |> subset(Date %in% estimatedP$Date)
-  salmonspp <- grep("resident", speciesComp$species, value = TRUE, invert = TRUE)
-  ## Mobile Prediction:
-  pTF <- pTF |> merge(salmon |> subset(SonarBank == "Offshore"), by = "Date")
-  
-  for(i in salmonspp){
-
-    if(!is.null(proportionOffshore)){
-      pTF
-    }
-  }
+  salmon$mergecode <- paste(salmon$SonarCode, salmon$SonarAim, salmon$SonarBin)
+  salmon <- salmon |> merge(estimatedP)
+    
+  form <- paste0("cbind(", paste(paste0(estSpp,"*count"), collapse = ","), ") ~ Date")
+  estimatedN <- salmon |> aggregate(as.formula(form), sum)
+  names(estimatedN) <- c("Date", estSpp)
+  estimatedN
 }
 
 plotmix <- function(speciesComp, day = 1, includeProportionLabels = FALSE, SonarBin = NULL, SonarAim = NULL, SonarBank = NULL, ...){
@@ -655,6 +697,7 @@ plotmix <- function(speciesComp, day = 1, includeProportionLabels = FALSE, Sonar
   dd <- speciesComp$estDate - day + 1
   stratum <- speciesComp$analysisData$predDF |> subset(Date == dd, select = stratum)
   stratum <- unique(stratum$stratum)
+  speciesComp$analysisData$lengthData$L.cm.modadj <- speciesComp$analysisData$lengthData$L.cm.adj - speciesComp$analysisData$Xlength %*% beta
 
   if(!is.null(SonarBin)) stratum <- grep(SonarBin, stratum, value = TRUE)
   if(!is.null(SonarAim)) stratum <- grep(SonarAim, stratum, value = TRUE)
@@ -665,12 +708,14 @@ plotmix <- function(speciesComp, day = 1, includeProportionLabels = FALSE, Sonar
   for( j in seq_along(stratum) ){
     s <- stratum[j]
     keep <- speciesComp$analysisData$lengthData$Date == dd & speciesComp$analysisData$lengthData$stratum == s
-    x <- speciesComp$analysisData$lengthData$L.cm.adj[keep] - speciesComp$analysisData$Xlength[keep,] %*% beta
+    x <- speciesComp$analysisData$lengthData$L.cm.modadj[keep]
     wgts <- speciesComp$analysisData$lengthData$weights[keep]
-    p <- speciesComp$estimatedDailyProportions |> subset(paste(SonarBank, SonarBin, SonarAim, sep = "_") == s & Date == speciesComp$estDate - d + 1)
+    p <- speciesComp$estimatedDailyProportions |> subset(paste(SonarBank, SonarBin, SonarAim, sep = "_") == s & Date == dd)
     if(nrow(p) > 1) stop("I've gotten confused and found more than one proportion that matches with the data.")
-    
-    range <- histplot(x, wgts, xlab = "Fish Length (cm)", range = c(10, 110), main = paste(dd, gsub("_", " ", s)))
+      
+    ## salmoncount <- speciesComp$estimatedProporion
+    hplot <- histplot(x, wgts, xlab = "Fish Length (cm)", range = c(10, 110), main = paste(dd, gsub("_", " ", s), "N =", p$Count))
+    range <- hplot$range
     col <- c("blue", "green")
     xx <- seq(range[1], range[2], by = 0.1)
     f <- numeric(length(xx))
@@ -712,9 +757,20 @@ plotmix <- function(speciesComp, day = 1, includeProportionLabels = FALSE, Sonar
     }
     lines(xx-range[1], f, col = "black", lwd = 2, lty = 2)
     if(j==1){
-      legend("topright", legend = speciesLabels(speciesComp$species), col = speciesColours(speciesComp$species), lty = rep(1, length(speciesComp$species)))
+      legend("topright", legend = speciesLabels(speciesComp$species), col = speciesColours(speciesComp$species), 
+              lty = rep(1, length(speciesComp$species)), ncol = 3)
     }
   }
+  
+  # speciesComp$analysisData$lengthData$L.cm.modadj <- speciesComp$analysisData$lengthData$L.cm.adj - speciesComp$analysisData$Xlength %*% beta
+  # speciesComp$analysisData$lengthData %>% 
+    # filter(Date %in% dd) %>% 
+    # mutate( breaks = (L.cm.modadj %/% 3)*3 ) %>%
+    # group_by(SonarBin, SonarAim, SonarCode, Date, breaks) %>% summarize(cnt =sum(weights), .groups = "drop") %>% 
+    # ggplot(aes(x = L.cm.modadj)) + 
+      # geom_col(aes(x = breaks, y = cnt)) + 
+      # theme_bw() + 
+      # facet_grid(SonarCode~SonarBin + SonarAim, scale = "free_y")
 }
 
 calculateResiduals <- function(speciesComp){
