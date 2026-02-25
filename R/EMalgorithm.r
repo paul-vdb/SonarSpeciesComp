@@ -1,5 +1,13 @@
-
-## Set up an R6 Environment to run the mixture model and keep all the pieces for later.
+#' Expectation-Maximization step for fitting Joint Species Composition Model
+#'
+#' Nested RTMB functions to update expected probability observation belongs to a group, and then internally maximize the model parameters.
+#'
+#' @param parsOuter List of paramter values to start with. Data and fixed parameters values are passed through a function environment.
+#'
+#' @return cector of parameter values after a single EM step with the current log-likelihood tacked on.
+#'
+#'
+#' @export
 EMstep <- function(parsOuter){
   getAll(parsOuter, parsFixed, warn = FALSE)
   ll <- 0
@@ -159,12 +167,21 @@ EMstep <- function(parsOuter){
   }
   start <- (lapply(parsOuter, RTMB:::getValues))
   F <- MakeTape(inner_objective_fn, start)
-  Newton <- F$newton(1:length(F$par()), maxit = 1000 )
+  Newton <- F$newton(1:length(F$par()), maxit = 1000)
   pars_opt <- Newton(numeric(0))
   c(pars_opt, ll)
 }
 
-
+#' Joint Species Composition Model negative log density
+#'
+#' RTMB function to compute the negative log density of the joint species composition model.
+#'
+#' @param pars List of paramter values to start with. Data and fixed parameters values are passed through a function environment.
+#'
+#' @return negative log-likelihood
+#'
+#'
+#' @export
 negLogDensity <- function(pars){
   getAll(pars, parsFixed, warn = FALSE)
   ll <- 0
@@ -244,6 +261,20 @@ negLogDensity <- function(pars){
   -ll
 }
 
+#' Run EM Algorithm to fit Joint Species Composition Model
+#'
+#' Loop through steps of the EM algorithm using the species composition R6 object.
+#'
+#' @param speciesComp R6 object that contain all the of data and parameters to fit the joint species composition model.
+#' @param simulatedData logical (default = FALSE) whether or not to fit to simulated data that is held withing the speciesComp object.
+#'
+#' @details Run the EM algorithm to fit the joint species composition model. Save the estimated parameters and estimate the daily proportions of each stock
+#' and save those within the `speciesComp` R6 object and returned to the user. See \code{speciesComp$estimatedHourlyProportions} to access the stratum hour level 
+#' estimated species proportions, \code{speciesComp$estimatedDailyProportions} to access the aggregated estimate of proportions of each stock for the entire day, 
+#' within each stratum, and \code{speciesComp$estimatedParameters} to access the estimated and fixed parameters.
+#'
+#'
+#' @export
 runEMAlgorithm <- function(speciesComp, simulatedData = FALSE){
   parsInit <- speciesComp$parsInit
   if(!simulatedData){
@@ -254,7 +285,7 @@ runEMAlgorithm <- function(speciesComp, simulatedData = FALSE){
     dataenv <- local({dataList <- speciesComp$simData; includeTestFishery <- speciesComp$includeTestFishery; 
                     parsFixed <- speciesComp$parsFixed; adjustLengths <- speciesComp$adjustLengths; dprior = speciesComp$priorDist;
                     environment()})
-  } 
+  }
   environment(EMstep) <- dataenv
   EM <- MakeTape(EMstep, parsInit)
 
@@ -264,6 +295,7 @@ runEMAlgorithm <- function(speciesComp, simulatedData = FALSE){
   npar <- length(unlist(speciesComp$parsInit))
   start <- EM$par()
   vals <- EM(start)
+  if(any(is.nan(vals))) stop("Provide better initial values.")
   lli <- -Inf
   lli <- c(lli, vals[npar+1])
 
@@ -273,7 +305,7 @@ runEMAlgorithm <- function(speciesComp, simulatedData = FALSE){
   verbose <- speciesComp$optimControl$verbose
 
   if(verbose) cat("Running EM Algorithm\n")
-  pb <- txtProgressBar(min = 1, max = maxit, initial = 2) 
+  if(verbose) pb <- txtProgressBar(min = 1, max = maxit, initial = 2) 
   iter <- 2
   converged <- FALSE
   diff <- Inf
@@ -295,8 +327,8 @@ runEMAlgorithm <- function(speciesComp, simulatedData = FALSE){
     iter <- iter + 1
     if(verbose) setTxtProgressBar(pb,iter)
   }
-  close(pb)
-  if(verbose){ 
+  if(verbose) close(pb)
+  if(verbose){
     cat("number of iterations =", iter, "\n")
     if(relativeDiff) cat("Convergence was evaluated based on the relative difference of the log likelihood:", diff, ".\n") 
     else cat("Convergence was evaluated based on the difference of the log likelihood:", diff, ".\n") 

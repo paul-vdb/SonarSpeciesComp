@@ -11,6 +11,7 @@ logitM <- function(p){
   K <- length(p)
   log(p[1:(K-1)]/p[K])
 }
+
 ## Stick Breaking Transformation
 stickBreakTransform <- function(p){
   K <- length(p) - 1
@@ -147,6 +148,7 @@ histplot <- function(x, wgts, range = c(35, 120), delta = 2, ylim = NA, xlim = N
         ylim = ylim, ylab = "Density", xlab = xlab, ...)
     tickpos <- c(mids - width/2, mids[length(mids)] + width[length(width)]/2)
     axis(1, at = tickpos, labels = signif(breaks, 3))
-    return(list(range = range, breaks = breaks, density = density))
+
+    return(list(range = range, lengths = breaks[-length(breaks)] + delta/2, density = density))
 }
 
