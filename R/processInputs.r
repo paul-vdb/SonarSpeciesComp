@@ -47,6 +47,7 @@ speciesCompSummary <- R6Class("SpeciesComp",
     feasibleLengths = c(10, 120),
     includeTestFishery = FALSE,
     adjustLengths = TRUE,
+    adjustFormula = NULL,
     rollAngle = 0,  ## *** Make sure to set this
     sonarLengths = NULL,
     testFisheryCounts = NULL,
@@ -115,8 +116,8 @@ speciesCompSummary <- R6Class("SpeciesComp",
       setLengthAdjustment(self, formula, adjustLengths)
     },
     setModelParameters = function(fixedParameters = c("mu", "sigma", "muChinook", "sigmaChinook", "pJackChinook"), 
-                                  parameterValues = list(), adjustLengths = NULL, includeTestFishery = NULL, testFisheryWeights = 1){
-      setModelParameters(self, fixedParameters, parameterValues, adjustLengths, includeTestFishery, testFisheryWeights)
+                                  parameterValues = list(), adjustLengths = NULL, includeTestFishery = NULL, testFisheryWeights = 1, testFisheryBins = c("Bin1", "Bin2", "Bin3")){
+      setModelParameters(self, fixedParameters, parameterValues, adjustLengths, includeTestFishery, testFisheryWeights, testFisheryBins)
     },
     setModelProportions = function(formula = list()){
       setModelProportions(self, formula)
@@ -130,12 +131,15 @@ speciesCompSummary <- R6Class("SpeciesComp",
     setPriors = function(priors = list()){
       setPriors(self, priors = priors)
     },
-    predictSpeciesComposition = function(proportionOffshore = NULL, salmonPassageTable = NULL, extrapolateBin = "Bin3"){
-      predictSpeciesComposition(self, proportionOffshore, salmonPassageTable, extrapolateBin)
+    predictSpeciesComposition = function(proportionOffshore = NULL, salmonPassageTable = NULL, extrapolateBin = "Bin3", catchabilityCorrection = FALSE){
+      predictSpeciesComposition(self, proportionOffshore, salmonPassageTable, extrapolateBin, catchabilityCorrection)
     },
     plot = function(day = 1, includeProportionLabels = FALSE, SonarBin = NULL, SonarAim = NULL, SonarBank = NULL, ...){
       plotmix(self, day, includeProportionLabels, SonarBin, SonarAim, SonarBank, ...)
-    }    
+    },
+    plotBeamSpreading = function(speciesComp){
+      plotBeamSpreading(self)
+    }
   )
 )
 
@@ -401,6 +405,7 @@ addTestFishery <- function(speciesComp){
 setLengthAdjustment <- function(speciesComp, formula = ~ beamWidth.cm, adjustLengths = TRUE){
   ## Beam Width Adjustment or potentially just bins, or nothing (adjustLengths = FALSE)
   speciesComp$analysisData$Xlength <- model.matrix(formula, data = speciesComp$analysisData$lengthData)
+  speciesComp$adjustFormula <- formula
   speciesComp$adjustLengths <- adjustLengths
 }
 
@@ -519,7 +524,7 @@ setSpeciesLengths <- function(speciesComp, mu = NULL, sigma = NULL, pChin = NULL
 }
 
 setModelParameters <- function(speciesComp, fixedParameters = c("mu", "sigma", "muChinook", "sigmaChinook", "pJackChinook"), 
-                          parameterValues = list(), adjustLengths = NULL, includeTestFishery = NULL, testFisheryWeights = 1){
+                          parameterValues = list(), adjustLengths = NULL, includeTestFishery = NULL, testFisheryWeights = 1, testFisheryBins = c("Bin1", "Bin2", "Bin3")){
   ## Another place to set length adjustment:
   if(!is.null(adjustLengths)) speciesComp$adjustLengths <- adjustLengths
   if(!is.null(includeTestFishery)) speciesComp$includeTestFishery <- includeTestFishery
@@ -528,6 +533,9 @@ setModelParameters <- function(speciesComp, fixedParameters = c("mu", "sigma", "
     speciesComp$analysisData$testFisheryCounts <- addTestFishery(speciesComp)
   }
 
+  ## Set which counts apply to the test fishery analysis:
+  speciesComp$analysisData$predDF$SalmonCountTF <- ifelse(speciesComp$analysisData$predDF$SonarBin %in% testFisheryBins, speciesComp$analysisData$predDF$SalmonCount, 0)
+ 
   if(speciesComp$site == "Mission") { 
     q <- c( "sockeye" = 0.33, "pink" = 0.16, "jackchinook" = 0.5)  ## From Yunbo's paper.
   }else{
@@ -645,7 +653,7 @@ setModelParameters <- function(speciesComp, fixedParameters = c("mu", "sigma", "
   speciesComp$analysisData$testFisheryWeights <- testFisheryWeights
 }
 
-predictSpeciesComposition = function(speciesComp, proportionOffshore = NULL, salmonPassageTable = NULL, extrapolateBin = "Bin3"){
+predictSpeciesComposition = function(speciesComp, proportionOffshore = NULL, salmonPassageTable = NULL, extrapolateBin = "Bin3", catchabilityCorrection = FALSE){
   if(is.null(speciesComp$salmonCounts) ){
     if(is.null(salmonPassageTable) & speciesComp$site == "Mission") stop("A salmonPassageTable needs to be provided to compute species composition at Mission.")
     if(speciesComp$site == "Mission") processMissionSalmonPassage(salmonPassageTable)
@@ -676,11 +684,17 @@ predictSpeciesComposition = function(speciesComp, proportionOffshore = NULL, sal
     ntest <- speciesComp$testFisheryCounts |> subset(Date %in% unique(estimatedP$Date), select = grep("resident", estSpp, invert = TRUE, value = TRUE))
   }
   ptest <- data.frame(t(apply(ntest, 1, FUN = function(x){x/sum(x)})))
+  if(catchabilityCorrection){
+    q <- c(exp(speciesComp$estimatedParameters$logq), 1)    
+    pcor <- ptest/q
+    ptest <- pcor/sum(pcor)
+  }
+  
   ptest <- cbind(Date = unique(estimatedP$Date), SonarBank = "Offshore", SonarBin = NA, SonarAim = NA, 
     day = 1:speciesComp$ndays, Count = NA, SalmonCount = NA, NHour = 1, smallresident = 0, largeresident = 0, ptest, SonarCode = "mobile")
   estimatedP <- rbind(estimatedP, ptest[, names(estimatedP)])
 
-  salmon <- speciesComp$salmonCounts
+  salmon <- speciesComp$salmonCounts |> subset(Date %in% estimatedP$Date)
   estimatedP$mergecode <- paste(estimatedP$Date, estimatedP$SonarCode, estimatedP$SonarAim, estimatedP$SonarBin)
   if(any("Bin3" %in% estimatedP$SonarBin) & extrapolateBin == "Bin3"){
     salmon$SonarBin[salmon$SonarBin %in% c("Bin3", "Bin4", "Bin5", "Bin6")] <- "Bin3"
@@ -784,6 +798,38 @@ plotmix <- function(speciesComp, day = 1, includeProportionLabels = FALSE, Sonar
     }
   }
   invisible(plotinfo)
+}
+
+plotBeamSpreading <- function(speciesComp){
+  if(!any(speciesComp$estDate %in% speciesComp$estimatedDailyProportions$Date)) 
+    stop("Must run 'fitModel' before trying to predict species composition for this date.")
+  
+  beta <- speciesComp$estimatedParameters$beta
+  speciesComp$analysisData$lengthData$L.cm.modadj <- speciesComp$analysisData$lengthData$L.cm.adj - speciesComp$analysisData$Xlength %*% beta
+  Xnew <- data.frame(R.m = 1:30, SonarBin = rep(c("Bin1", "Bin2", "Bin3"), each = 10))
+  Xnew <- Xnew |> within(beamWidth.cm <- R.m*0.3*pi/180*100)
+  Xnew <- Xnew |> filter(SonarBin %in% unique(speciesComp$analysisData$lengthData$SonarBin))
+  predmat <- model.matrix(speciesComp$adjustFormula, data = Xnew)
+  Xnew$adjust <- (predmat %*% beta)[,1]
+  
+  ## Now adjust species lengths:
+  mu <- speciesComp$estimatedParameters$mu
+  muChin <- speciesComp$estimatedParameters$muChin
+  spp <- grep('chinook', speciesComp$species, value = TRUE, invert = TRUE)
+  spp2 <- grep('chinook', speciesComp$species, value = TRUE, invert = FALSE)
+  
+  par(mfrow = c(1,1))
+  plot(0, ylim = c(0,100), xlim = c(0, max(Xnew$R.m)), pch = '', ylab = 'Expected Length (cm)', xlab = 'Range (m)')
+  for( i in seq_along(spp) ){
+    lines(Xnew$R.m, mu[i] + Xnew$adjust, col = speciesColours(spp[i]))
+    abline(h = mu[i], col = speciesColours(spp[i]), lty = 2)
+  }
+  for( i in seq_along(spp2) ){
+    lines(Xnew$R.m, muChin[i] + Xnew$adjust, col = speciesColours(spp2[i]))
+    abline(h = muChin[i], col = speciesColours(spp2[i]), lty = 2)    
+  }
+  legend("topleft", legend = speciesLabels(speciesComp$species), col = speciesColours(speciesComp$species), 
+          lty = rep(1, length(speciesComp$species)), ncol = 2)
 }
 
 calculateResiduals <- function(speciesComp){

@@ -30,6 +30,60 @@ calcPostProb <- function(x, mu, sigma, prob, wgts = NULL){
   list(postp = postp, ll = ll)
 }
 
+#' Calculate the Mixture Proportions for Prediction in model:
+#'
+#' Used in the Expectation-Maximization Algorithm for fitting the joint mixture model.
+#'
+#' @param alpha vector of linear predictors for each species proportions.
+#' @param alpha vector of linear predictors for jack Chinook as a proportion of all Chinook.
+#' @param dataList dataList used in the EM algorithm.
+#' @param pAdultChinook proportion of adult Chinook that are small or large. Defaults to fixed = 1 if adults are just one group.
+#' @K0 Number of non-Chinook specices
+#' @K Number of total categories (species + Chinook types).
+#'
+#' @return list of posterior probabilities and log likelihood of mixture component.
+#'
+#'
+#' @export
+calcProportions <- function(alpha, alphaJackChinook, pAdultChinook, dataList, K0, K){
+  ## Set up proportions. alpha parameter for predicting proportions. 
+  ## Xalpha is a list of design matrices for each species.
+  np <- nrow(dataList$predDF)
+  logitp <- matrix(0, nrow = np, ncol = K0) ## +1 is Chinook.
+  indx0 <- 1
+  for( i in 1:K0 ){
+    nc <- ncol(dataList$Xprop[[i]]) 
+    indx1 <- indx0 + nc - 1
+    logitp[,i] <- as.matrix(dataList$Xprop[[i]]) %*% alpha[indx0:indx1]
+    indx0 <- indx1 + 1
+  }
+
+  logitpjack <- as.matrix(dataList$XpropChin) %*% alphaJackChinook
+  pjack <- 1/(1+exp(-logitpjack))
+
+  p <- matrix(0, nrow = np, ncol = K)
+  for( i in 1:np ) {
+    p[i, 1:(K0+1)] <- expitM(logitp[i,])  
+    p[i, (K0+1):K ] <- p[i, (K0+1)]*c(pjack[i], (1-pjack[i])*pAdultChinook)
+  }
+  return(p)
+}
+
+calcTestFisheryProbs <- function(p, q, dataList, K0, K){
+  ndays <- nrow(dataList$testFisheryCounts)
+  padultchinook <- 1-rowSums(p[,1:(K0+1)])
+  nq <- ncol(dataList$testFisheryCounts)
+  for( d in 1:ndays ){
+    idx <- which(dataList$predDF$day == d)
+    Nd <- sapply(dataList$qSppIndices, FUN = function(x){sum(p[idx,x]*dataList$predDF$SalmonCountTF[idx])})
+    Ndc <- sum(padultchinook[idx]*dataList$predDF$SalmonCountTF[idx])
+    Nd <- c(Nd, Ndc)
+    # Nsalmon <- sum(dataList$lengthData$SalmonCount[idx]/dataList$lengthData$nLengths[idx])
+    prob <- (q*Nd)/sum(q*Nd)
+  }
+  return(prob)
+}
+
 ## Delete:
 #' Calculate the density of the test fishery counts
 #'

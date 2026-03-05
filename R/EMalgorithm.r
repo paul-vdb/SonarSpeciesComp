@@ -25,29 +25,27 @@ EMstep <- function(parsOuter){
 
   ## Set up proportions. alpha parameter for predicting proportions. 
   ## Xalpha is a list of design matrices for each species.
-  np <- nrow(dataList$predDF)
-  logitp <- matrix(0, nrow = np, ncol = K0) ## +1 is Chinook.
-  indx0 <- 1
-  for( i in 1:K0 ){
-    nc <- ncol(dataList$Xprop[[i]]) 
-    indx1 <- indx0 + nc - 1
-    logitp[,i] <- as.matrix(dataList$Xprop[[i]]) %*% alpha[indx0:indx1]
-    indx0 <- indx1 + 1
-  }
+  p <- calcProportions(alpha = alpha, alphaJackChinook = alphaJackChinook, 
+    pAdultChinook = pAdultChinook, dataList = dataList, K0 = K0, K = K)
 
-  logitpjack <- as.matrix(dataList$XpropChin) %*% alphaJackChinook
-  pjack <- 1/(1+exp(-logitpjack))
+  # np <- nrow(dataList$predDF)
+  # logitp <- matrix(0, nrow = np, ncol = K0) ## +1 is Chinook.
+  # indx0 <- 1
+  # for( i in 1:K0 ){
+    # nc <- ncol(dataList$Xprop[[i]]) 
+    # indx1 <- indx0 + nc - 1
+    # logitp[,i] <- as.matrix(dataList$Xprop[[i]]) %*% alpha[indx0:indx1]
+    # indx0 <- indx1 + 1
+  # }
 
-  p <- matrix(0, nrow = np, ncol = K)
-  for( i in 1:np ) {
-    p[i, 1:(K0+1)] <- expitM(logitp[i,])  
-    p[i, (K0+1):K ] <- p[i, (K0+1)]*c(pjack[i], (1-pjack[i])*pAdultChinook)
-  }
-  Njc <- sum(p[,K0+1]*dataList$predDF$SalmonCount)
-  Nkc <- sum((1-rowSums(p[,1:(K0+1)]))*dataList$predDF$SalmonCount)
+  # logitpjack <- as.matrix(dataList$XpropChin) %*% alphaJackChinook
+  # pjack <- 1/(1+exp(-logitpjack))
 
-  ## Prior jack chinook:
-  # ll <- ll + dbeta(Njc/(Nkc+Njc), 10, 500, log = TRUE)
+  # p <- matrix(0, nrow = np, ncol = K)
+  # for( i in 1:np ) {
+    # p[i, 1:(K0+1)] <- expitM(logitp[i,])  
+    # p[i, (K0+1):K ] <- p[i, (K0+1)]*c(pjack[i], (1-pjack[i])*pAdultChinook)
+  # }
 
   ## Adjust lengths for beam spreading:
   ## X is a design matrix that is either distance from shore, or bin id. 
@@ -77,8 +75,8 @@ EMstep <- function(parsOuter){
     nq <- ncol(dataList$testFisheryCounts)
     for( d in 1:ndays ){
       idx <- which(dataList$predDF$day == d)
-      Nd <- sapply(dataList$qSppIndices, FUN = function(x){sum(p[idx,x]*dataList$predDF$SalmonCount[idx])})
-      Ndc <- sum(padultchinook[idx]*dataList$predDF$SalmonCount[idx])
+      Nd <- sapply(dataList$qSppIndices, FUN = function(x){sum(p[idx,x]*dataList$predDF$SalmonCountTF[idx])})
+      Ndc <- sum(padultchinook[idx]*dataList$predDF$SalmonCountTF[idx])
       Nd <- c(Nd, Ndc)
       # Nsalmon <- sum(dataList$lengthData$SalmonCount[idx]/dataList$lengthData$nLengths[idx])
       prob <- (q*Nd)/sum(q*Nd)
@@ -104,28 +102,28 @@ EMstep <- function(parsOuter){
 
     ## Set up proportions. alpha parameter for predicting proportions. 
     ## Xalpha is a list of design matrices for each species.
-    np <- nrow(dataList$predDF)
-    logitp <- matrix(0, nrow = np, ncol = K0) ## +1 is Chinook.
-    indx0 <- 1
-    for( i in 1:K0 ){
-      nc <- ncol(dataList$Xprop[[i]]) 
-      indx1 <- indx0 + nc - 1
-      logitp[,i] <- as.matrix(dataList$Xprop[[i]]) %*% alpha[indx0:indx1]
-      indx0 <- indx1 + 1
-    }
+    p <- calcProportions(alpha = alpha, alphaJackChinook = alphaJackChinook, 
+      pAdultChinook = pAdultChinook, dataList = dataList, K0 = K0, K = K)
+    
+    # np <- nrow(dataList$predDF)
+    # logitp <- matrix(0, nrow = np, ncol = K0) ## +1 is Chinook.
+    # indx0 <- 1
+    # for( i in 1:K0 ){
+      # nc <- ncol(dataList$Xprop[[i]]) 
+      # indx1 <- indx0 + nc - 1
+      # logitp[,i] <- as.matrix(dataList$Xprop[[i]]) %*% alpha[indx0:indx1]
+      # indx0 <- indx1 + 1
+    # }
 
-    logitpjack <- as.matrix(dataList$XpropChin) %*% alphaJackChinook
-    pjack <- 1/(1+exp(-logitpjack))
+    # logitpjack <- as.matrix(dataList$XpropChin) %*% alphaJackChinook
+    # pjack <- 1/(1+exp(-logitpjack))
 
-    p <- matrix(0, nrow = np, ncol = K)
-    for( i in 1:np ) {
-      p[i, 1:(K0+1)] <- expitM(logitp[i,])  
-      p[i, (K0+1):K ] <- p[i, (K0+1)]*c(pjack[i], (1-pjack[i])*pAdultChinook)
-    }
+    # p <- matrix(0, nrow = np, ncol = K)
+    # for( i in 1:np ) {
+      # p[i, 1:(K0+1)] <- expitM(logitp[i,])  
+      # p[i, (K0+1):K ] <- p[i, (K0+1)]*c(pjack[i], (1-pjack[i])*pAdultChinook)
+    # }
     logpobs <- log(p[dataList$lengthData$grpIndex,])
-
-    Njc <- sum(p[,K0+1]*dataList$predDF$SalmonCount)
-    Nkc <- sum((1-rowSums(p[,1:(K0+1)]))*dataList$predDF$SalmonCount)
 
     ## Objective function for length based mixture model, conditional on posterior probs.
     objval <- 0
@@ -155,8 +153,8 @@ EMstep <- function(parsOuter){
       nq <- ncol(dataList$testFisheryCounts)
       for( d in 1:ndays ){
         idx <- which(dataList$predDF$day == d)
-        Nd <- sapply(dataList$qSppIndices, FUN = function(x){sum(p[idx,x]*dataList$predDF$SalmonCount[idx])})
-        Ndc <- sum(padultchinook[idx]*dataList$predDF$SalmonCount[idx])
+        Nd <- sapply(dataList$qSppIndices, FUN = function(x){sum(p[idx,x]*dataList$predDF$SalmonCountTF[idx])})
+        Ndc <- sum(padultchinook[idx]*dataList$predDF$SalmonCountTF[idx])
         Nd <- c(Nd, Ndc)
         # Nsalmon <- sum(dataList$lengthData$SalmonCount[idx]/dataList$lengthData$nLengths[idx])
         prob <- (q*Nd)/sum(q*Nd)
@@ -250,8 +248,8 @@ negLogDensity <- function(pars){
     nq <- ncol(dataList$testFisheryCounts)
     for( d in 1:ndays ){
       idx <- which(dataList$predDF$day == d)
-      Nd <- sapply(dataList$qSppIndices, FUN = function(x){sum(p[idx,x]*dataList$predDF$SalmonCount[idx])})
-      Ndc <- sum(padultchinook[idx]*dataList$predDF$SalmonCount[idx])
+      Nd <- sapply(dataList$qSppIndices, FUN = function(x){sum(p[idx,x]*dataList$predDF$SalmonCountTF[idx])})
+      Ndc <- sum(padultchinook[idx]*dataList$predDF$SalmonCountTF[idx])
       Nd <- c(Nd, Ndc)
       # Nsalmon <- sum(dataList$lengthData$SalmonCount[idx]/dataList$lengthData$nLengths[idx])
       prob <- (q*Nd)/sum(q*Nd)
@@ -295,14 +293,15 @@ runEMAlgorithm <- function(speciesComp, simulatedData = FALSE){
   npar <- length(unlist(speciesComp$parsInit))
   start <- EM$par()
   vals <- EM(start)
-  if(any(is.nan(vals))) stop("Provide better initial values.")
+  if(any(is.nan(vals))) 
+    stop("EM Algorithm finding NaN values. Either provide better initial values or more likely choose a different formulation. Occurs often with Test Fishery and Lengths don't agree.")
   lli <- -Inf
   lli <- c(lli, vals[npar+1])
 
-  maxit <- speciesComp$optimControl$maxiters
-  tol <- speciesComp$optimControl$tolerance
-  relativeDiff <- speciesComp$optimControl$relativeDifference
-  verbose <- speciesComp$optimControl$verbose
+  maxit <- extractControls( speciesComp$optimControl$maxiters, 1000 )
+  tol <- extractControls( speciesComp$optimControl$tolerance, 1e-8 )
+  relativeDiff <- extractControls( speciesComp$optimControl$relativeDifference, FALSE )
+  verbose <- extractControls( speciesComp$optimControl$verbose, TRUE )
 
   if(verbose) cat("Running EM Algorithm\n")
   if(verbose) pb <- txtProgressBar(min = 1, max = maxit, initial = 2) 
@@ -336,7 +335,8 @@ runEMAlgorithm <- function(speciesComp, simulatedData = FALSE){
   if(!converged) {
     if(maxit < iter) cat("[Warning]  Maximum iterations of", maxit, "were reached without convergence to a difference of", tol, "between the log likelihood.\n")
     if(maxit >= iter) cat("[Warning]  Failed to converge with a tolerance of", tol, "between the log likelihood.\n")
-    cat("If a (relative) difference of", diff, "seems to be close enough then you may consider ignoring this message.\n")
+    if(relativeDiff) cat("If a relative difference of", diff, "seems to be close enough then you may consider ignoring this message.\n")
+    else cat("If a difference of", diff, "seems to be close enough then you may consider ignoring this message.\n")
   }
   
   parsFit <- reList(parsInit, vals)
