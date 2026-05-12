@@ -46,7 +46,7 @@
 #' @examples
 #' datalist <- simulate(N = c(1000, 50000, 20000), nLengths = 20, 
 #'                      sonarBins = c(1,2,3), sonarBanks = c(1,2), mu = c(38, 58, 70), sigma = c(4,3.5,7),
-#'                      beta = c(1.5, 0.8), sigmaObs)
+#'                      beta = c(1.5, 0.8), sigmaObs = 5.5)
 #' 
 #' @export
 simulate <- function(N = c(1000, 5000, 2000),
@@ -253,4 +253,3 @@ simulateGivenData <- function(speciesComp){
   }
   speciesComp$simData <- dataList
 }
-

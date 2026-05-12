@@ -116,8 +116,9 @@ speciesCompSummary <- R6Class("SpeciesComp",
       setLengthAdjustment(self, formula, adjustLengths)
     },
     setModelParameters = function(fixedParameters = c("mu", "sigma", "muChinook", "sigmaChinook", "pJackChinook"), 
-                                  parameterValues = list(), adjustLengths = NULL, includeTestFishery = NULL, testFisheryWeights = 1, testFisheryBins = c("Bin1", "Bin2", "Bin3")){
-      setModelParameters(self, fixedParameters, parameterValues, adjustLengths, includeTestFishery, testFisheryWeights, testFisheryBins)
+                                  parameterValues = list(), adjustLengths = NULL, includeTestFishery = NULL, testFisheryWeights = 1, testFisheryBins = c("Bin1", "Bin2", "Bin3"),
+                                  fitLengths = NULL){
+      setModelParameters(self, fixedParameters, parameterValues, adjustLengths, includeTestFishery, testFisheryWeights, testFisheryBins, fitLengths)
     },
     setModelProportions = function(formula = list()){
       setModelProportions(self, formula)
@@ -524,7 +525,8 @@ setSpeciesLengths <- function(speciesComp, mu = NULL, sigma = NULL, pChin = NULL
 }
 
 setModelParameters <- function(speciesComp, fixedParameters = c("mu", "sigma", "muChinook", "sigmaChinook", "pJackChinook"), 
-                          parameterValues = list(), adjustLengths = NULL, includeTestFishery = NULL, testFisheryWeights = 1, testFisheryBins = c("Bin1", "Bin2", "Bin3")){
+                          parameterValues = list(), adjustLengths = NULL, includeTestFishery = NULL, testFisheryWeights = 1, 
+                          testFisheryBins = c("Bin1", "Bin2", "Bin3"), fitLengths = NULL){
   ## Another place to set length adjustment:
   if(!is.null(adjustLengths)) speciesComp$adjustLengths <- adjustLengths
   if(!is.null(includeTestFishery)) speciesComp$includeTestFishery <- includeTestFishery
@@ -619,7 +621,29 @@ setModelParameters <- function(speciesComp, fixedParameters = c("mu", "sigma", "
     speciesComp$parsInit$logq <- NULL
     speciesComp$parsFixed$logq <- log(q)
   }
-
+  
+  ## If we want to shift the mean by a cm or two:
+  if(is.null(fitLengths)){
+    speciesComp$analysisData$dmuLimit <- cbind(mu*0, mu*0)
+    speciesComp$analysisData$dmuChinLimit <- cbind(muChin*0, muChin*0)
+    speciesComp$parsFixed$logitdmu <- mu*0
+    speciesComp$parsFixed$logitdmuChin <- muChin*0
+  }else{
+    if(!is.null(fitLengths$dmuLimit)){
+      speciesComp$analysisData$dmuLimit <- fitLengths$dmuLimit
+      speciesComp$parsInit$logitdmu <- numeric(length(mu))
+    }else{
+      speciesComp$analysisData$dmuLimit <- cbind(rep(-2, length(mu)), rep(-2, length(mu)))
+      speciesComp$parsFixed$logitdmu <- numeric(length(mu))      
+    }
+    if(!is.null(fitLengths$dmuChinLimit)){
+      speciesComp$analysisData$dmuChinLimit <- fitLengths$dmuChinLimit
+      speciesComp$parsInit$logitdmuChin <- numeric(length(muChin))      
+    }else{
+      speciesComp$analysisData$dmuChinLimit <- cbind(rep(-2, length(muChin)), rep(-2, length(muChin)))
+      speciesComp$parsFixed$logitdmuChin <- numeric(length(muChin))      
+    }
+  }
   nc <- ncol(speciesComp$analysisData$XpropChin)
   logitpChin <- logitM(pChin)
   nr <- length(logitpChin)

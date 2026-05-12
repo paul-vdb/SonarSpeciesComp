@@ -38,6 +38,7 @@ calcPostProb <- function(x, mu, sigma, prob, wgts = NULL){
 #' @param alpha vector of linear predictors for jack Chinook as a proportion of all Chinook.
 #' @param dataList dataList used in the EM algorithm.
 #' @param pAdultChinook proportion of adult Chinook that are small or large. Defaults to fixed = 1 if adults are just one group.
+#' @param Xprop is a list of design matrices with ncol = alpha.
 #' @K0 Number of non-Chinook specices
 #' @K Number of total categories (species + Chinook types).
 #'
@@ -45,26 +46,26 @@ calcPostProb <- function(x, mu, sigma, prob, wgts = NULL){
 #'
 #'
 #' @export
-calcProportions <- function(alpha, alphaJackChinook, pAdultChinook, dataList, K0, K){
+calcProportions <- function(alpha, alpha_jackchinook, p_adultchinook, Xprop, K0, K){
   ## Set up proportions. alpha parameter for predicting proportions. 
   ## Xalpha is a list of design matrices for each species.
-  np <- nrow(dataList$predDF)
-  logitp <- matrix(0, nrow = np, ncol = K0) ## +1 is Chinook.
+  np <- nrow(Xprop[[1]])
+  logit_p <- matrix(0, nrow = np, ncol = K0) ## +1 is Chinook.
   indx0 <- 1
   for( i in 1:K0 ){
-    nc <- ncol(dataList$Xprop[[i]]) 
+    nc <- ncol(Xprop[[i]]) 
     indx1 <- indx0 + nc - 1
-    logitp[,i] <- as.matrix(dataList$Xprop[[i]]) %*% alpha[indx0:indx1]
+    logit_p[,i] <- as.matrix(Xprop[[i]]) %*% alpha[indx0:indx1]
     indx0 <- indx1 + 1
   }
 
-  logitpjack <- as.matrix(dataList$XpropChin) %*% alphaJackChinook
-  pjack <- 1/(1+exp(-logitpjack))
+  logit_pjack <- as.matrix(Xprop[[K0+1]]) %*% alpha_jackchinook
+  p_jack <- 1/(1+exp(-logit_pjack))
 
   p <- matrix(0, nrow = np, ncol = K)
   for( i in 1:np ) {
-    p[i, 1:(K0+1)] <- expitM(logitp[i,])  
-    p[i, (K0+1):K ] <- p[i, (K0+1)]*c(pjack[i], (1-pjack[i])*pAdultChinook)
+    p[i, 1:(K0+1)] <- expitM(logit_p[i,])  
+    p[i, (K0+1):K ] <- p[i, (K0+1)]*c(p_jack[i], (1-p_jack[i])*p_adultchinook)
   }
   return(p)
 }
@@ -82,6 +83,25 @@ calcTestFisheryProbs <- function(p, q, dataList, K0, K){
     prob <- (q*Nd)/sum(q*Nd)
   }
   return(prob)
+}
+
+## Distribution of log normal when passed in terms of mean and sd on real scale.
+dlognorm_real <- function(x, mean_real, sd_real, log = FALSE){
+  sigma <- log(1+(sd_real/mean_real)^2)
+  mu <- log(mean_real^2/sqrt(mean_real + sd_real^2))
+  if(log) dnorm(log(x), mu, sigma, TRUE) - log(x)
+  else dnorm(log(x), mu, sigma, FALSE)/x
+}
+
+dlognorm <- function(x, mean, sd, log = FALSE){
+  if(log) dnorm(log(x), mean, sd, TRUE) - log(x)
+  else dnorm(log(x), mean, sd, FALSE)/x
+}
+
+dbinomc <- function(x, size, prob, log = FALSE){
+  logp <- lgamma(size+1) - lgamma(x+1) - lgamma(size - x + 1) + x*log(prob) + (size-x)*log(1-prob)
+  if(log) return(logp)
+  else return(exp(logp))
 }
 
 ## Delete:

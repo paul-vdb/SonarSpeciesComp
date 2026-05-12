@@ -16,8 +16,14 @@ EMstep <- function(parsOuter){
   Kchin <- length(muChin)
   K0 <- length(mu)
   K <- Kchin + K0
-  muc <- c(mu, muChin)
   q <- exp(c(logq, 0))
+
+  ## Allow estimation of small changes from the mean to correct for 'near' shore.
+  muDelta <- dataList$dmuLimit[,1] + (dataList$dmuLimit[,2]-dataList$dmuLimit[,1])/(1+exp(-logitdmu))
+  mu <- mu + muDelta
+  muDeltaChin <- dataList$dmuChinLimit[,1] + (dataList$dmuChinLimit[,2]-dataList$dmuChinLimit[,1])/(1+exp(-logitdmuChin))
+  muChin <- muChin + muDeltaChin
+  muc <- c(mu, muChin)
 
   ## Standard deviation incld. observation error
   logsigma_ <- c(logsigma, logsigmaChin)
@@ -25,8 +31,8 @@ EMstep <- function(parsOuter){
 
   ## Set up proportions. alpha parameter for predicting proportions. 
   ## Xalpha is a list of design matrices for each species.
-  p <- calcProportions(alpha = alpha, alphaJackChinook = alphaJackChinook, 
-    pAdultChinook = pAdultChinook, dataList = dataList, K0 = K0, K = K)
+  p <- calcProportions(alpha = alpha, alpha_jackchinook = alphaJackChinook, 
+    p_adultchinook = pAdultChinook, dataList = dataList, K0 = K0, K = K)
 
   # np <- nrow(dataList$predDF)
   # logitp <- matrix(0, nrow = np, ncol = K0) ## +1 is Chinook.
@@ -93,8 +99,14 @@ EMstep <- function(parsOuter){
     Kchin <- length(muChin)
     K0 <- length(mu)
     K <- Kchin + K0
-    muc <- c(mu, muChin)
     q <- exp(c(logq, 0))
+
+    ## Allow estimation of small changes from the mean to correct for 'near' shore.
+    muDelta <- dataList$dmuLimit[,1] + (dataList$dmuLimit[,2]-dataList$dmuLimit[,1])/(1+exp(-logitdmu))
+    mu <- mu + muDelta
+    muDeltaChin <- dataList$dmuChinLimit[,1] + (dataList$dmuChinLimit[,2]-dataList$dmuChinLimit[,1])/(1+exp(-logitdmuChin))
+    muChin <- muChin + muDeltaChin
+    muc <- c(mu, muChin)
 
     ## Standard deviation incld. observation error
     logsigma_ <- c(logsigma, logsigmaChin)
@@ -102,8 +114,8 @@ EMstep <- function(parsOuter){
 
     ## Set up proportions. alpha parameter for predicting proportions. 
     ## Xalpha is a list of design matrices for each species.
-    p <- calcProportions(alpha = alpha, alphaJackChinook = alphaJackChinook, 
-      pAdultChinook = pAdultChinook, dataList = dataList, K0 = K0, K = K)
+    p <- calcProportions(alpha = alpha, alpha_jackchinook = alphaJackChinook, 
+      p_adultchinook = pAdultChinook, dataList = dataList, K0 = K0, K = K)
     
     # np <- nrow(dataList$predDF)
     # logitp <- matrix(0, nrow = np, ncol = K0) ## +1 is Chinook.

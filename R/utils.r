@@ -1,5 +1,43 @@
 ## Utility Functions
 
+## Join parameters:
+joinPars2 <- function(est = NULL, fixed = NULL, species){
+  if(is.null(fixed)) return(est)
+  if(is.null(est)) return(fixed)
+  nspp <- length(species)
+  v <- numeric(nspp)
+  idx <- which(species %in% names(fixed))
+  v[idx] <- fixed
+  idy <- which(!species %in% names(fixed))
+  v[idy[1:length(est)]] <- est
+  return(v)
+}
+
+joinPars <- function(est = NULL, fixed = NULL, species){
+  if(is.null(est) & !is.null(fixed)) return(fixed)
+  nspp <- length(species)
+  v <- numeric(nspp)
+  idx <- which(species %in% names(fixed))
+  if(length(idx) > 0) v[idx] <- fixed
+  idy <- which(!species %in% names(fixed))
+  if(length(idy) > 0) v[idy[1:length(est)]] <- est
+  if(!RTMB:::ad_context()) names(v) <- species[1:length(v)]
+  return(v)
+}
+
+log_null <- function(x){
+  if(is.null(x)) return(x)
+  return(log(x))
+}
+
+fn_null <- function(f, ...){
+  val <- list()
+  val[names(list(...))] <- list(...)
+  if(is.null(val$x)) return(val$x)
+  fn <- as.call(list(f, quote(...)))
+  return(eval(fn))
+}
+
 ## Inverse Multivariate Logit Transform
 expitM <- function(x){
   ex <- exp(c(x,0))
@@ -7,9 +45,27 @@ expitM <- function(x){
 }
 
 ## Multivariate Logit Transform
-logitM <- function(p){
-  K <- length(p)
-  log(p[1:(K-1)]/p[K])
+logitM <- function(x){
+  K <- length(x)
+  log(x[1:(K-1)]/x[K])
+}
+
+## Interval transform logit
+logitInterval <- function(x, lower, upper){
+  p <- (x-lower)/(upper - lower)
+  log(p/(1-p))
+}
+
+logDetJac_logitInterval <- function(x, lower, upper){
+  delta <- upper-lower
+  gr <- delta/((lower-x)*(lower+delta-x))
+  sum(-log(abs(gr)))
+}
+
+## Inverse interval transform logit
+ilogitInterval <- function(x, lower, upper){
+  p <- 1/(1+exp(-x))
+  lower + p*(upper-lower)
 }
 
 ## Stick Breaking Transformation
@@ -67,31 +123,94 @@ reList <- function(parsList, parsVec){
 }
 
 ## Convenience function for extracting control values.
-extractControls <- function(controlValue, defaultValue)
-{
-  if(!is.null(controlValue))  
+extractControls <- function(controlValue, defaultValue){
+  if(!is.null(controlValue))
     return(controlValue)
   else 
     return(defaultValue)
 }
 
-## Estimate total species per day / bin for test fishery counts:
-estimateDailyN <- function(testFishGrp, prob, q){
-  if( nrow(testFishGrp) != nrow(prob) )
-  Nspp <- 
-  for( i in seq_along(prob) ){
-    testFishGrp$totalFish*prob[,i]
+## Convenience function for extracting control values.
+extractParams <- function(self, init_values=NULL, fixed_values=NULL, default_values, name, transform = I, ...){
+  id <- names(default_values)
+  if(is.null(id)){
+    id <- 1:length(default_values)
+    names(default_values) <- id
   }
-      
-      idx <- which(tfgrp$day == d)
-      nd <- 
-      Nd <- sum(nd)
-      if(Nd == 0) next
-      pd <- numeric(nq)
-      for( k in 1:nq ) pd[k] <- sum(p[idx,k+(K-nq)]*nd/Nd)              
-      prob <- (q*pd)/sum(q*pd)
-      negll <- negll - testwgts[d]*dmultinom(testcounts[d,], prob = prob, size = sum(testcounts[d,]), log = TRUE)
+  self$params_fixed[[name]] <- NULL
+  self$params_init[[name]] <- NULL
+  
+  ## Set fixed values, keep NULL if note present:
+  self$params_fixed[[name]] <- fn_null(transform, x=fixed_values, ...)
+
+  init <- default_values
+  if(!is.null(init_values)){
+    if(is.null(names(init))) names(init) <- 1:length(init)
+    init[names(init)] <- init
+  }
+  if(!is.null(fixed_values)){ 
+    if(is.null(names(fixed_values))) names(fixed_values) <- 1:length(fixed_values)
+    init <- init[!names(init) %in% names(fixed_values)]
+    if(length(init) == 0) init <- NULL
+  }
+  self$params_init[[name]] <- fn_null(transform, x = init, ...)
 }
+
+## Aggregates to daily proportion estimate:
+estimate_daily_proportions <- function(prop, pred_df, species){
+  ndays <- length(unique(pred_df$day))
+  nspp <- length(species)
+  
+  p_daily <- matrix(0, nrow = ndays, ncol = nspp) 
+  for( d in 1:ndays ){
+    dindx <- which(pred_df$day == d)
+    for( i in 1:nspp ) {
+      p_daily[d, i] <- sum(pred_df$Count[dindx]*prop[dindx,i])
+    }
+    p_daily[d, ] <- p_daily[d, ] / sum( p_daily[d, ] )
+  }
+  return(p_daily)
+}
+
+## Estimates daily salmon, combining adult chinook and removing small resident:
+estimate_daily_salmon = function(p_daily, total_salmon, species){
+  if("smalladultchinook" %in% species) {
+    chin_indx <- grep("adultchinook", species)
+    p_daily[, chin_indx[1]] <- p_daily[,chin_indx[1]] + p_daily[,chin_indx[2]]
+    p_daily <- p_daily[,-chin_indx[2], drop = FALSE]
+  }
+  
+  if("smallresident" %in% species){
+    correction <- 1 - p_daily[,1]
+    p_daily <- p_daily[, -1, drop = FALSE]
+  }else{
+    correction <- rep(1, nrow(p_daily))
+  }
+  N_salmon <- matrix(0, nrow = nrow(p_daily), ncol = ncol(p_daily))
+  for( d in 1:nrow(p_daily) ){
+    N_salmon[d, ] <- as.numeric(p_daily[d,])*total_salmon[d, "count"]/correction[d]
+  }
+  N_salmon <- cbind(N_salmon, N_salmon[, ncol(N_salmon)-1] + N_salmon[, ncol(N_salmon)])
+  return(N_salmon)
+}
+
+## Estimate total species per day / bin for test fishery counts:
+# estimateDailyN <- function(testFishGrp, prob, q){
+  # if( nrow(testFishGrp) != nrow(prob) )
+  # Nspp <- 
+  # for( i in seq_along(prob) ){
+    # testFishGrp$totalFish*prob[,i]
+  # }
+      
+      # idx <- which(tfgrp$day == d)
+      # nd <- 
+      # Nd <- sum(nd)
+      # if(Nd == 0) next
+      # pd <- numeric(nq)
+      # for( k in 1:nq ) pd[k] <- sum(p[idx,k+(K-nq)]*nd/Nd)              
+      # prob <- (q*pd)/sum(q*pd)
+      # negll <- negll - testwgts[d]*dmultinom(testcounts[d,], prob = prob, size = sum(testcounts[d,]), log = TRUE)
+# }
 
 ## Find and return visible modes based on a density function:
 findModes <- function(x,...) {
@@ -121,7 +240,6 @@ findGlobalMode <- function(x, xrange = NULL, ...) {
 
 ## Not in Base R? Really...
 is.Date <- function(x) inherits(x, 'Date')
-
 
 ## Taken from plotrix for the weighted histogram, reworked for this pacakge.
 histplot <- function(x, wgts, range = c(35, 120), delta = 2, ylim = NA, xlim = NA, xlab = NA, ...){

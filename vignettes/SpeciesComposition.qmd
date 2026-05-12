@@ -80,7 +80,21 @@ df
 
 2. Qualark requirements:
 
-***Under construction*** Need to decide input when getting back into this data based on database output.
+Access to the Qualark database. Creating access can be done by using the R package `metasalmon` to setup a personal access token (PAT) to the GitHub repository and download the latest data on the fly. ***I will make another option for running this without the database later***.
+
+```{r, eval = FALSE}
+remotes::install_github("dfo-pacific-science/metasalmon")
+library(metasalmon)
+
+# Check if you have a stored PAT
+gh::gh_token()
+
+# Re-set your credentials if needed
+gitcreds::gitcreds_set("https://github.com")
+
+# If you have not already set up a connection, then run:
+ms_setup_github(repo = "dfo-pacific-science/qualark")
+```
 
 ```{r}
 df <- data.frame(Date = as.Date("2023-09-01", format = "%Y-%m-%d"), Hour = 5, SonarBin = "Bin1", SonarBank = "Left Bank", Up = 5, Down = 3, Duration = 20)
@@ -89,7 +103,7 @@ df
 
 ### Hydroacoustic Lengths
 
-At Mission, hydroacoustic lengths are taken for 20 fish, every three hours in each sonar Aim, Bin, and Bank. Sonar bins 1-3 are measured, with distances further than that unreliable for length measurement. Similarly, at Qualark, measurement lengths follow the same process but for 2 distance bins, and a single aim due to a target roll angle of 35 degrees.
+At Mission, hydroacoustic lengths are taken for 20 fish, every three hours in each sonar Aim, Bin, and Bank. Sonar bins 1-3 are measured, with distances further than that unreliable for length measurement. Similarly, at Qualark, measurement lengths follow the same process but for 2 distance bins, and a single aim due to a target roll angle of 35 degrees. Updates to the sampling protocols will be trialed in 2026.
 
 1. Mission requirements (order does not matter):
 
@@ -100,16 +114,13 @@ df
 
 2. Qualark requirements:
 
-***Under construction*** Need to decide input when getting back into this data based on database output.
-
-```{r}
-df <- data.frame(Date = as.Date("2023-09-01", format = "%Y-%m-%d"), Hour = 5, SonarBin = "Bin1", Bank = "Left Bank", R.m = 6.3, L.cm = 55.1)
-df
-```
+As before, the database connection is required to run the Qualark model.
 
 Additional columns can be added here as covariates for a linear model of the species proportions. We will naturally add `"day"` and `"SonarAimf"` which creates a factor of the sonar aim with Aim3 referring to all aims that are not aim 1/2 near shore on left bank.
 
 ### Test Fishery Catches
+
+***Under construction***
 
 At Mission, the Whonnock test fishery operates just downstream of the site. A gillnet does two sets at the daytime high tide (targets the larger tide) for 30 minutes each. The number of sockeye, pink salmon, jack Chinook and adult Chinook are counted as either gilled or tangled. Additionally, fork lengths are also recorded. For counts, the raw data are combined for the day, with the setStart referring to the time the first net is set `"FE_NET_START_OUT_DTT"`.
 
