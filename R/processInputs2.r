@@ -83,8 +83,15 @@ speciesCompModel <- R6Class("SpeciesComp",
       if(site == "Mission" & is.null(self$data_info$roll_angle)) self$data_info$roll_angle <- 0
       if(site == "Qualark" & is.null(self$data_info$roll_angle)) self$data_info$roll_angle <- 35
       
-      if(site == "Mission") self$data_info$test_fishery_input <- c("sockeye_whonnock", "chinook_whonnock", "chinook_albion_chin", "chinook_albion_vmn")
-      if(site == "Qualark") self$data_info$test_fishery_input <- c("sockeye_qualark", "chinook_qualark")
+      if(site == "Mission"){
+        self$data_info$test_fishery_input <- c("sockeye_whonnock_vmn", "chinook_whonnock_vmn", "chinook_albion_chin", "chinook_albion_vmn")
+        self$data_info$test_fishery_spp <- c("sockeye_whonnock", "chinook_whonnock", "chinook_albion")
+      }
+      if(site == "Qualark"){
+        self$data_info$test_fishery_input <- c("sockeye_qualark", "chinook_qualark")
+        self$data_info$test_fishery_spp <- c("sockeye_qualark", "chinook_qualark")
+      }
+      self$data_info$test_fishery_formula <- c("species", "fishery", "net_type")
       
       self$test_fishery_catch <- list()
       self$default_parameters <- default_params()
@@ -138,8 +145,13 @@ speciesCompModel <- R6Class("SpeciesComp",
                                   fixed_values = list(), initial_values = list(),
                                   formula_proportions = list(),
                                   formula_lengths = ~ beamWidth.cm,
-                                  date = NULL, ndays = NULL, species = NULL, delta_mu_bounds = NULL){
+                                  date = NULL, ndays = NULL, species = NULL, delta_mu_bounds = NULL,
+                                  qinv_names = NULL,
+                                  test_fishery_spp = NULL){
       ## If user wants to update the date and species, they can do that here:
+      if(!is.null(qinv_names)) self$data_info$test_fishery_formula <- qinv_names
+      if(!is.null(test_fishery_spp)) self$data_info$test_fishery_spp <- test_fishery_spp
+
       self$setDate(date, ndays)
       self$setSpecies(species)
       set_daily_data(self)
@@ -177,10 +189,14 @@ speciesCompModel <- R6Class("SpeciesComp",
 default_params <- function(){
   default_parameters <- list()
   ## Expansion Line Albion: 3049 (2020 Brittany Jenewein)
-  default_parameters$qinv <- c("pink_whonnock" = 35000, "sockeye_whonnock" = 12000, "jackchinook_whonnock" = 20000, "adultchinook_whonnock" = 3000, 
-                            "chinook_whonnock" = 3000, "chinook_albion_vmn" = 3049, "chinook_albion_chin" = 6049, "chinook_albion_chum" = 3049, 
-                            "pink_qualark" = 10000, "sockeye_qualark" = 5000, "jackchinook_qualark" = 20000,
-                            "adultchinook_qualark" = 5000, "chinook_qualark" = 6000)
+  default_parameters$qinv <- c("pink_whonnock" = 35000, "sockeye_whonnock" = 12000, "jackchinook_whonnock" = 20000, "adultchinook_whonnock" = 3000,
+                               "pink_whonnock_vmn" = 35000, "sockeye_whonnock_vmn" = 12000, "jackchinook_whonnock_vmn" = 20000, "adultchinook_whonnock_vmn" = 3000,   
+                              "chinook_whonnock" = 3000, "chinook_whonnock_vmn" = 3000, 
+                              "chinook_albion_vmn" = 3049, "chinook_albion_chin" = 6049, "chinook_albion_chum" = 3049,                              
+                              "chinook" = 3049, "chinook_albion" = 3049, "chinook_vmn" = 3049, "chinook_chin" = 3049, "chinook_chum" = 3049,
+                              "sockeye" = 12000, "sockeye_vmn" = 12000, "pink" = 35000, "pink_vmn" = 35000,
+                              "pink_qualark" = 10000, "sockeye_qualark" = 5000, "jackchinook_qualark" = 20000,
+                              "adultchinook_qualark" = 5000, "chinook_qualark" = 6000)
   default_parameters$alpha <- c(0,0,0,0)
   default_parameters$alpha_jackchinook <- 0
   default_parameters$beta <- c(0,0)
@@ -223,6 +239,7 @@ set_priors <- function(self, priors = list(), includeJacobian = TRUE){
   self$prior_distributions$dsmallresident <- extractControls(priors$N_smallresident, default)
 }
 
+#' @export
 speciesCheck <- function(spp){
   allowed <- c("smallresident", "largeresident", "pink", "sockeye", "jackchinook", "adultchinook", "smalladultchinook", "largeadultchinook")
   spp <- tolower(gsub(" ", "", spp))
@@ -250,18 +267,21 @@ speciesCheck <- function(spp){
   return(spp_info)
 }
 
+#' @export
 speciesLabels <- function(species){
   match <- c("smallresident" = "Small Resident", "largeresident" = "Large Resident", "jackchinook" = "Chinook Jack", 
              "pink" = "Pink", "sockeye" = "Sockeye", "adultchinook" = "Chinook Adult", "smalladultchinook" = "Chinook Small Adult", "largeadultchinook" = "Chinook Large Adult")
   as.character(match[species])
 }
 
+#' @export
 speciesColours <- function(species){
   cols <- c("smallresident" = "#FFB100", "largeresident" = "#656837",  "jackchinook" = "#A33CC7", "pink" = "#FF8DA1", "sockeye" = "#CD0000", 
     "adultchinook" = "#27408B", "smalladultchinook" = "#27408B", "largeadultchinook" = "#27408B")
   cols[species]
 }
 
+#' @export
 checkDate <- function(e_date){
   if(is.null(e_date)){return(NULL)}
   if(!is.Date(e_date)){
@@ -272,6 +292,7 @@ checkDate <- function(e_date){
 }
 
 ## Core Mission Data Processing function:
+#' @export
 process_mission_lengths <- function(self, sonar_counts, sonar_lengths, dropN = 2){
   
   year <- as.numeric(format(self$est_date, "%Y"))
@@ -352,6 +373,7 @@ process_mission_lengths <- function(self, sonar_counts, sonar_lengths, dropN = 2
   self$sonar_lengths <- sonar_lengths
 }
 
+#' @export
 process_minutes <- function(time){
   time <- strsplit(time, ":")
   do.call("c", lapply(time, FUN = function(x){as.numeric(x[1])*60 + as.numeric(x[2]) + as.numeric(x[3])/60}))
@@ -359,6 +381,7 @@ process_minutes <- function(time){
 
 ## Process the Whonnock Test Fishery Counts: 
 ## Include the test fishery counts in format as per PSC and let them choose to include tangled or only gilled.
+#' @export
 process_whonnock_catch <- function(self, test_fishery_counts, tangled = TRUE){
 
   ## Process times:
@@ -399,6 +422,7 @@ process_whonnock_catch <- function(self, test_fishery_counts, tangled = TRUE){
   self$test_fishery_catch[["whonnock"]] <- out
 }
 
+#' @export
 process_mission_salmon_passage = function(self, salmon_passage_table){
   ## Check names in dataframes are present:
   col_names <- c("SelectedMethod", "LB_BIN1_AIM1", "LB_BIN1_AIM2", "LB_BIN1", "LB_BIN2", 
@@ -428,6 +452,7 @@ process_mission_salmon_passage = function(self, salmon_passage_table){
   self$salmon_counts <- long_salmon
 }
 
+#' @export
 set_daily_data <- function(self){
 
   self$data_list <- list()
@@ -446,9 +471,6 @@ set_daily_data <- function(self){
   ## Test Fishery Data:
   ## Add in test fishery counts if present:
   if(length(self$test_fishery_catch) > 0){
-    if(self$data_info$site == "Qualark") test_fishery_spp <- c("sockeye_qualark", "chinook_qualark")
-    if(self$data_info$site == "Mission") test_fishery_spp <- c("sockeye_whonnock", "chinook_whonnock", "chinook_albion_vmn", "chinook_albion_chum", "chinook_albion_chin")
-  
     tf_names <- names(self$test_fishery_catch)
     catch <- NULL
     cols <- c("Date", "pink", "sockeye", "jackchinook", "adultchinook", "chinook", "effort", "net_type")
@@ -460,21 +482,23 @@ set_daily_data <- function(self){
                                     subset(select = cols_i)
       spp_i <- spp_tf[spp_tf %in% names(catch_i)]
       for( j in 1:nrow(catch_i) ){
-        tf_nameij <- tf_names[i]
-        if(tf_nameij == "albion") tf_nameij <- paste(tf_nameij, catch_ij$net_type, sep = "_")
         catch_ij <- catch_i[j,]
-        catch <- rbind(catch, data.frame(Date = catch_ij$Date, fishery = tf_nameij, species = spp_i, catch = as.numeric(catch_ij[,spp_i]), effort = catch_ij$effort))
+        catch <- rbind(catch, data.frame(Date = catch_ij$Date, fishery = tf_names[i], net_type = catch_ij$net_type, species = spp_i, catch = as.numeric(catch_ij[,spp_i]), effort = catch_ij$effort))
       }
     }
-    catch <- catch |> within(par_name <- paste(species, fishery, sep = "_"))
+    
+    ## par_name defined by user:
+    if(length(self$data_info$test_fishery_formula) > 1){ catch$par_name <- do.call(paste, c(catch[, self$data_info$test_fishery_formula], sep = "_"))
+    }else{catch$par_name <- c(catch[, self$data_info$test_fishery_formula]) }
+    # catch <- catch |> within(par_name <- paste(species, fishery, sep = "_"))
     catch <- catch |> within(day <- as.numeric(factor(Date)))
 
     ## Setup names of test fishery information:
-    catch <- catch |> subset(paste(species, fishery, sep = "_") %in% test_fishery_spp)
+    catch <- catch |> subset(paste(species, fishery, sep = "_") %in% self$data_info$test_fishery_spp)
     self$data_info$test_fishery_input <- unique(catch$par_name)
     
     # catch <- catch |> subset(par_name %in% self$data_info$test_fishery_input)
-    catch <- catch |> within(q_index <- sapply(paste(species, fishery, sep = "_"), FUN = function(x) { which(x == self$data_info$test_fishery_input) }) )
+    catch <- catch |> within(q_index <- sapply(par_name, FUN = function(x) { which(x == self$data_info$test_fishery_input) }) )
     catch <- catch |> within(N_index <- sapply(species, FUN = function(x) { which(x == self$species_info$species_predict)}) )
     self$data_list$test_fishery_catch <- catch
   }
@@ -490,6 +514,7 @@ set_daily_data <- function(self){
 }
 
 ## Add Roxygen
+#' @export
 set_model_proportions <- function(self, formula = list()){
   if(self$ndays == 1)
     p_formula <- extractControls(formula$all, ~ -1 + stratum)
@@ -532,7 +557,7 @@ set_length_adjustment <- function(self, formula = NULL){
   self$fit_info$adjust_lengths <- TRUE
 }
 
-
+#' @export
 set_species_lengths <- function(self, mu = NULL, sigma = NULL, proportions_chinook = NULL, test_fishery_lengths = NULL, ndays = 7){
 
   dates_ <- seq(self$est_date - ndays + 1, self$est_date, 1)
@@ -604,6 +629,7 @@ set_species_lengths <- function(self, mu = NULL, sigma = NULL, proportions_chino
   self$default_parameters$proportion_adultchinook <- chinook_list$p[2:nchinook]/(1-chinook_list$p[1])
 }
 
+#' @export
 fitChinookLengths <- function(x, chinook_names, mu_chin, sigma_chin, proportions_chin, mu_fixed = NULL, sigma_fixed = NULL){
     nchinook <- length(chinook_names)
 
@@ -702,6 +728,7 @@ fitChinookLengths <- function(x, chinook_names, mu_chin, sigma_chin, proportions
     return(list(mu = mu_est, sigma = sigma_est, p = p_est))
 }
 
+#' @export
 set_model_parameters <- function(self, fixed_parameters = c("mu", "sigma", "proportion_jackchinook"),
                                   fixed_values = list(), initial_values = list(),
                                   delta_mu_bounds = NULL){
@@ -761,6 +788,7 @@ set_model_parameters <- function(self, fixed_parameters = c("mu", "sigma", "prop
   if("proportion_adultchinook" %in% names(fixed_values)) self$params_fixed$proportion_adultchinook <- fixed_values$proportion_adultchinook
 }
 
+#' @export
 process_albion_catch <- function(self, albion_catch){
   ## Process Date:
   if(!is.POSIXct(albion_catch$CRPT_DTT)) stop("CRPT_DTT must be of type POSIXct.")
@@ -800,12 +828,6 @@ process_albion_catch <- function(self, albion_catch){
   albion_total <- albion_total |> within(net_type <- ifelse(grepl("VMN", NET_CONFIG, ignore.case=TRUE), "vmn", net_type))
   albion_total <- albion_total |> within(net_type <- ifelse(grepl("SP Chum", NET_CONFIG, ignore.case=TRUE), "chum", net_type))
   self$test_fishery_catch[["albion"]] <- albion_total
-}
-
-initialize_parameters <- function(self){
-
-  
-
 }
 
 # self <- speciesComp$new(
