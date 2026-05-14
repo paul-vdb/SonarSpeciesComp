@@ -1,34 +1,19 @@
-
-
-# defaultPrior <- function(self){
-  # self$dLogPrior <- function(...){0}
-# }
-
-# setParameters = function(self, inits, fixed, delta_lower = -1, delta_upper = 1){
-  # self$params_fixed <- list()
-  # self$params_init <- list()
-  
-  # Set log catchability:
-  # extractParams(self, inits$q, fixed$q, self$default_parameters$q, name = "log_q", transform = log)  
-  # Set alpha
-  # extractParams(self, inits$alpha, fixed$alpha, self$default_parameters$alpha, name = "alpha", transform = I)
-  # Set alpha jack chinook
-  # extractParams(self, inits$alpha_jackchinook, fixed$alpha_jackchinook, self$default_parameters$alpha_jackchinook, name = "alpha_jackchinook")
-  # Set beta
-  # out <- extractParams(self, inits$mu, fixed$mu, self$default_parameters$mu, name = "mu")
-  # Set mu
-  # extractParams(self, inits$beta, fixed$beta, self$default_parameters$beta, name = "beta")
-  # Set sigma
-  # extractParams(self, inits$sigma, fixed$sigma, self$default_parameters$sigma, name = "logsigma", transform = log)  
-  # Set delta_mu
-  # extractParams(self, inits$delta_mu, fixed$delta_mu, self$default_parameters$delta_mu, name = "logit_delta_mu", transform = logitInterval, 
-                # lower = delta_lower, upper = delta_upper)
-  # Set sigma0
-  # extractParams(self, inits$sigma0, fixed$sigma0, self$default_parameters$sigma0, name = "log_sigma0", transform = log)
-# }
-
+#' Fit joint species composition model
+#'
+#' Expectation-Maximization algorithm for fitting the joint hydroacoustic lengths and test fishery model.
+#'
+#' @param self The R6 `speciesCompModel` that is set up for a model run. 
+#'
+#' @details Techincal details for this function are provided as a vignette. Computes posterior probabilities of lengths to species
+#' given current values of the parameters. Those probabilities are passed to the objective function and then the objective function is maximized to
+#' find the new parameters. This process is repeated until the log-likelihood becomes stable and the parameter estimates are then returned along with
+#' being being stored in the R6 object $params_estimated.
+#'
+#' @return List of model estimates (`$params_estimated`), convergence details (`$convergence`), 
+#' estimate of daily species passage (`$N_daily`), and daily proportions (`$p_daily`).
+#'
+#' @export
 fit_joint_model <- function(self){
-  ## *** data input
   species <- self$species_info$species
   names_tf <- self$data_info$test_fishery_input
   species_N <- self$species_info$species_predict
@@ -226,8 +211,8 @@ fit_joint_model <- function(self){
 
   fit <- runEM(EM, control = self$fit_info)  
   
-  if(fit$convergence["converged"] == 0){
-    cat("Date:", self$est_date, "Model did not converge.\n")
+  if(fit$convergence["converged"] > 0){
+    cat("For date:", self$est_date, "Model did not successfully converge.\n")
     # cat("Trying to fit a second time.\n")
     # EM(fit$values[-length(fit$values)])
     # fit <- runEM(EM, control = self$fit_info)
@@ -264,7 +249,28 @@ fit_joint_model <- function(self){
   estimates
 }
 
-## Run the EM algorithm:
+#' Run EM Algorithm
+#'
+#' Iterate through the Expectation-Maximization algorithm until convergence criteria are met.
+#'
+#' @param EM Taped RTMB model object. See details.
+#' @param control List to control convergence criteria of the algorithm. See details.
+#'
+#' @details The EM object is built by other functions and takes parameter estimates, returns updated parameter estimates and the log-likelihood.
+#' Typically we assume that object is taped and built with RTMB but that is not necessary, as long as it does the inner optimization of the objective function.
+#' The control list input is
+#' \itemize{
+#'  \item `maxiters` Maximum iterations before failing (default = 1000).
+#'  \item `tolerance` Maximum difference between log-likelihood between each iteration to set convergence (default = 1e-8).
+#'  \item `relativeDifference` TRUE then convergence is taken as relative difference between the log-likelihood on each iteration, or FALSE it is total difference (default = FALSE).
+#'  \item `verbose` TRUE then print more details upon fitting, or FALSE fit quietly unless there is an error.
+#' }
+#'
+#' @return List of model estimates (`$params_estimated`), convergence details (`$convergence`), 
+#' estimate of daily species passage (`$N_daily`), and daily proportions (`$p_daily`).
+#'
+#'
+#' @export
 runEM <- function(EM, control){
   start <- EM$par()
   npar <- length(start)
@@ -316,9 +322,63 @@ runEM <- function(EM, control){
     if(relativeDiff) cat("If a relative difference of", diff, "seems to be close enough then you may consider ignoring this message.\n")
     else cat("If a difference of", diff, "seems to be close enough then you may consider ignoring this message.\n")
   }
-  return(list(values = vals, convergence = c("converged" = as.numeric(converged), "iters" = iter, "log_lik_difference" = as.numeric(diff)), fit_path = fit_path))
+  return(list(values = vals, convergence = c("converged" = as.numeric(1-converged), "iters" = iter, "log_lik_difference" = as.numeric(diff)), fit_path = fit_path))
 }
 
+#' Basic Mixture Model
+#'
+#' Basic Gaussian mixture model fit using the EM algorithm.
+#'
+#' @param x data as a vector.
+#' @param K number of components, default = NULL and ignored if names are given.
+#' @param mu starting values for the mean (default = NULL).
+#' @param sigma starting values for the standard deviation (default = NULL).
+#' @param prob starting values for mixture proportions (default = NULL).
+#' @param mu_fixed named vector with values to hold fixed (default = NULL).
+#' @param sigma_fixed named vector with values to hold fixed (default = NULL).
+#' @param wgts mixture weights associated with each observation x (default = NULL).
+#' @param names Names of each component in the mixture model (default = NULL) Must provide names or K.
+#' @param control List for specifying fitting details of EM algorithm (see details).
+#'
+#' @details The control list input
+#' \itemize{
+#'  \item `maxiters` Maximum iterations before failing (default = 1000).
+#'  \item `tolerance` Maximum difference between log-likelihood between each iteration to set convergence (default = 1e-8).
+#'  \item `relativeDifference` TRUE then convergence is taken as relative difference between the log-likelihood on each iteration, or FALSE it is total difference (default = FALSE).
+#'  \item `verbose` TRUE then print more details upon fitting, or FALSE fit quietly unless there is an error.
+#' }
+#'
+#' @return List of model estimates.
+#'
+#' @examples
+#' p <- c(0.2, 0.7, 0.1)
+#' mu <- c(10, 25, 40)
+#' sigma <- c(1.25, 2, 3.3)
+#' x <- rnorm(200, mu[sample(3, 200, prob = p, replace = TRUE)], sigma[sample(3, 200, prob = p, replace = TRUE)])
+#' fit <- basicMixtureModel(x, K = 3)
+#'
+#' est <- NULL
+#' est2 <- NULL
+#' for( i in 1:500 ){
+#'    N <- c(2000, 1000)
+#'    nsmp <- 25
+#'    p1 <- c(0.3, 0.4, 0.3)
+#'    p2 <- c(0.15, 0.65, 0.2)
+#'    ptrue <- (p1*N[1] + p2*N[2])/sum(N)
+#'    id1 <- sample(3, nsmp, prob = p1, replace = TRUE)
+#'    id2 <- sample(3, nsmp, prob = p2, replace = TRUE)
+#'    x1 <- rnorm(nsmp, c(25, 45, 65)[id1], c(3, 3.7, 2.5)[id1])
+#'    x2 <- rnorm(nsmp, c(25, 45, 65)[id2], c(3, 3.7, 2.5)[id2])
+#'    wgts <- c(rep(N[1]/nsmp, nsmp), rep(N[2]/nsmp, nsmp))
+#'    fit <- basicMixtureModel(x=c(x1, x2), K = 3, prob = c(0.2, 0.4, 0.4), mu = c(20, 40, 60), wgts = wgts)
+#'    fit2 <- basicMixtureModel(x=c(x1, x2), K = 3, prob = c(0.2, 0.4, 0.4), mu = c(20, 40, 60))
+#'    est <- rbind(est, data.frame(par = c("p1", "p2", "p3"), diff = fit$proportion[order(fit$mu)] - ptrue, method = "weighted"))
+#'    est <- rbind(est, data.frame(par = c("p1", "p2", "p3"), diff = fit2$proportion[order(fit2$mu)] - ptrue, method = "unweighted"))
+#' }
+#' boxplot(diff~method+par, data = est)
+#' abline(h = 0, col='red')
+#'
+#' @export
 basicMixtureModel <- function(x, K = NULL, mu = NULL, sigma = NULL, prob = NULL, mu_fixed = NULL, sigma_fixed = NULL, wgts = NULL, names = NULL, control = list()){
 
   if(is.null(K) & is.null(names)) stop("Provide number of components, K")
@@ -406,26 +466,20 @@ basicMixtureModel <- function(x, K = NULL, mu = NULL, sigma = NULL, prob = NULL,
   estimates$proportion <- joinPars(fn_null(expitM, x=pars_est$logit_prob), fn_null(expitM, x=pars_fixed$logit_prob), names)
   estimates
 }
-
-# est <- NULL
-# est2 <- NULL
-# for( i in 1:500 ){
-  # N <- c(2000, 1000)
-  # nsmp <- 25
-  # p1 <- c(0.3, 0.4, 0.3)
-  # p2 <- c(0.15, 0.65, 0.2)
-  # ptrue <- (p1*N[1] + p2*N[2])/sum(N)
-  # id1 <- sample(3, nsmp, prob = p1, replace = TRUE)
-  # id2 <- sample(3, nsmp, prob = p2, replace = TRUE)
-  # x1 <- rnorm(nsmp, c(25, 45, 65)[id1], c(3, 3.7, 2.5)[id1])
-  # x2 <- rnorm(nsmp, c(25, 45, 65)[id2], c(3, 3.7, 2.5)[id2])
-  # wgts <- c(rep(N[1]/nsmp, nsmp), rep(N[2]/nsmp, nsmp))
-  # fit <- basicMixtureModel(x=c(x1, x2), K = 3, prob = c(0.2, 0.4, 0.4), mu = c(20, 40, 60), wgts = wgts)
-  # fit2 <- basicMixtureModel(x=c(x1, x2), K = 3, prob = c(0.2, 0.4, 0.4), mu = c(20, 40, 60))
-  # est <- rbind(est, fit$proportion[order(fit$mu)] - ptrue)
-  # est2 <- rbind(est2, fit2$proportion[order(fit$mu)] - ptrue)
-# }
-# boxplot(est, ylim = c(-1, 1))
-# abline(h = 0, col='red')
-# boxplot(est2, ylim = c(-1, 1))
-# abline(h = 0, col = 'red')
+ # est <- NULL
+ # for( i in 1:500 ){
+    # N <- c(2000, 1000)
+    # nsmp <- 25
+    # p1 <- c(0.3, 0.4, 0.3)
+    # p2 <- c(0.15, 0.65, 0.2)
+    # ptrue <- (p1*N[1] + p2*N[2])/sum(N)
+    # id1 <- sample(3, nsmp, prob = p1, replace = TRUE)
+    # id2 <- sample(3, nsmp, prob = p2, replace = TRUE)
+    # x1 <- rnorm(nsmp, c(25, 45, 65)[id1], c(3, 3.7, 2.5)[id1])
+    # x2 <- rnorm(nsmp, c(25, 45, 65)[id2], c(3, 3.7, 2.5)[id2])
+    # wgts <- c(rep(N[1]/nsmp, nsmp), rep(N[2]/nsmp, nsmp))
+    # fit <- basicMixtureModel(x=c(x1, x2), K = 3, prob = c(0.2, 0.4, 0.4), mu = c(20, 40, 60), wgts = wgts)
+    # fit2 <- basicMixtureModel(x=c(x1, x2), K = 3, prob = c(0.2, 0.4, 0.4), mu = c(20, 40, 60))
+    # est <- rbind(est, data.frame(par = c("p1", "p2", "p3"), diff = fit$proportion[order(fit$mu)] - ptrue, method = "weighted"))
+    # est <- rbind(est, data.frame(par = c("p1", "p2", "p3"), diff = fit2$proportion[order(fit2$mu)] - ptrue, method = "unweighted"))
+ # }
