@@ -9,6 +9,9 @@
 #'
 #' @export
 joinPars <- function(est = NULL, fixed = NULL, species){
+  "c" <- ADoverload("c")
+  "[<-" <- ADoverload("[<-")
+
   if(is.null(est) & !is.null(fixed)) return(fixed)
   nspp <- length(species)
   v <- numeric(nspp)
@@ -137,7 +140,11 @@ ilogitInterval <- function(x, lower, upper){
 #' @export
 addJacobian = function(fn, includeJacobian){
   if(!includeJacobian){
-    return(\(...){0})
+    return(\(...){
+    "c" <- ADoverload("c")
+    "[<-" <- ADoverload("[<-")
+    0
+  })
   }else{
     return(fn)
   }
@@ -226,6 +233,9 @@ extractParams <- function(self, init_values=NULL, fixed_values=NULL, default_val
 #' 
 #' @export
 estimate_daily_proportions <- function(prop, pred_df, species){
+  "c" <- ADoverload("c")
+  "[<-" <- ADoverload("[<-")
+
   ndays <- length(unique(pred_df$day))
   nspp <- length(species)
   
@@ -270,6 +280,9 @@ log_sum_exp <- function(x){
 #' 
 #' @export
 estimate_daily_salmon = function(p_daily, total_salmon, species){
+  "c" <- ADoverload("c")
+  "[<-" <- ADoverload("[<-")
+
   if("smalladultchinook" %in% species) {
     chin_indx <- grep("adultchinook", species)
     p_daily[, chin_indx[1]] <- p_daily[,chin_indx[1]] + p_daily[,chin_indx[2]]

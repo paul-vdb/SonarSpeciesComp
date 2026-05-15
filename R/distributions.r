@@ -15,6 +15,9 @@
 #'
 #' @export
 calcPostProb <- function(x, mu, sigma, prob, wgts = NULL){
+  "c" <- ADoverload("c")
+  "[<-" <- ADoverload("[<-")
+
   n <- length(x)
   K <- length(mu)
   if(is.null(wgts)) wgts <- rep(1, n)  
@@ -46,6 +49,9 @@ calcPostProb <- function(x, mu, sigma, prob, wgts = NULL){
 #'
 #' @export
 calcProportions <- function(alpha, alpha_jackchinook, p_adultchinook, Xprop, K0, K){
+  "c" <- ADoverload("c")
+  "[<-" <- ADoverload("[<-")
+
   ## Set up proportions. alpha parameter for predicting proportions. 
   ## Xalpha is a list of design matrices for each species.
   np <- nrow(Xprop[[1]])
