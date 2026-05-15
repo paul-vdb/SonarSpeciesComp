@@ -1,72 +1,53 @@
-#' Species Composition Estimation Methods
+#' Base class for species composition estimation methods
 #'
-#' Object to step through all the different setups and steps of estimating species composition on the Fraser River (Qualark and Mission) using Hydroacoustics and the test fishery.
+#' An R6 base class that is used to step through all the different setups and steps of estimating species composition on the Fraser River (Qualark and Mission) using Hydroacoustics and the test fishery.
 #'
-#' @param species vector of species names  e.g. c("largeresident", "jackChinook", "sockeye", "adultchinook").
-#' @param date Date that you will estimate. Place holder but does not need to be set.
-#' @param ndays Number of days to combine, defaults to 1.
-#' @param site Choose between "Mission" or "Qualark", roll angle is set be default based on site.
-#' @param roll_angle The roll angle that the sonar is set to (default = NULL).
-#' @param feasible_lengths Lower and upper bound of feasible lengths that can be measured on the sonar to remove infeasible (default = c(10, 120)).
+#' @field species_info List with information about species naming and ordering.
+#' @field est_date Date for the day of analysis.
+#' @field ndays Number of days to join.
+#' @field data_list List of all data used for analysis for the ndays of interest.
+#' @field data_info List of information specific to site and analysis (e.g. test fishery information).
+#' @field fit_info List of optimiziation and fitting information for fitting the model.
+#' @field sonar_lengths Dataframe of sonar lengths passed for entire data processed.
+#' @field test_fishery_catch List of test fishery catch for each fishery.
+#' @field salmon_counts Dataframe daily salmon counts estimate.
+#' @field params_estimated List of all estimated parameters after fitting model.
+#' @field params_fixed List all values to hold fixed when fitting the model.
+#' @field params_init List all initial values to use when fitting the model.
+#' @field sim_data List of daily simulated data to match data_list.
+#' @field default_parameters List of default parameter values to use when inits are not provided.
+#' @field prior_distributions List of prior distributions for all parameters.
+#' @field prior_jacobians List of prior jacobians for all parameters to account for parameter transformations.
 #'
-#' @details This is an R6 object that holds all of the methods to estimate species composition and generate reports. The methods include:
-#' \itemize{
-#'  \item{setSpecies}{Update the object with species to fit in a model. Input: 'species': options are c("smallresident", "largeresident", "pink", "sockeye", "jackchinook", "adultchinook", "smalladultchinook", "largeadultchinook").}
-#'  \item{setDate}{Update the estimation date and number of days to use. Input: 'date' and 'ndays'}
-#'  \item{controlOptimization}{Control optimization of the EM algorithm. Input: list with values `$tolerance` what difference is okay (default 1e-8), `$maxiters` maximum iterations of EM algorithm (default 1000), 
-#'  `$relative_difference` true or false to choose relative vs absolute difference on each iteration of algorithm, `$verbose` true or false to print details of EM algorithm.}
-#'  \item{processData}{Core function for adding data to the object. Does the main data processing and adds a few columns needed elsewhere for the entire dataset added to make it fast and easy to do different days. 
-#'  Input: 'sonar_counts' and 'sonar_lengths' are data frames see \code{?process_mission_lengths} or \code{?process_qualark_lengths} for details, 
-#'  'test_fishery_counts' list of dataframes named after the test fishery (e.g. 'whonnock' or 'albion') see \code{?process_whonnock_catch} or \code{?process_albion_catch} for details, 
-#'  'include_tangled' Whether or not to include tangled or just gilled counts, 'dropN' Keep length measurements per hour/bin/bank etc. if > dropN (default 2) but not always necessary, 
-#'  'salmon_passage table' data frame see \code{?process_mission_salmon_passage} for details, and 'feasible_lengths' set by default but can be changed here for upper and lower bounds of reasonable sonar lengths.}
-#'  \item{setSpeciesLengths}{Input: 'mu' = NULL, 'sigma' = NULL, 'proportion_adultchinook' = NULL, 'test_fishery_lengths' = NULL, 'ndays' = 6. See \code{?set_species_lengths} for details.}
-#'  \item{setModelParameters}{Core function to set the model before fitting with EM algorithm, especially which values to fix and which to fit. Input: 
-#'  'fixed_parameters' - which parameters to hold fixed (default c("mu", "sigma", "proportion_jackchinook")),
-#'  'fixed_values' - list fixed values that correspond to fixed_parameters, possible to set just a single value within as fixed (e.g. \code{list(mu = c("jackchinook" = 40))}),
-#'  'initial_values' - list provided by the user to improve fitting time for estimated parameters, default are used if not provided.
-#'  'formula_proportions' - list of formulas to use for alpha for each species, if \code{list("all" = ~ factor(day))}, then each species is given the same formula, except jack chinook are treated separately.
-#'  'formula_lengths' - formula for how to deal with beam spreading (default = \code{~beamWidth.cm}, 'date' - Option to change here if wanted, 'ndays' - Option to change number of days used to estimate, 
-#'  'species' - option to choose new species, 'delta_mu_bounds' - choose how much the mean length of each species can vary, 'qinv_names' - how to allow catchability to vary with combinations \code{c("species", "fishery", "net_type")},
-#'  'test_fishery_spp' -  combine test fishery and species to inform which species within each test fishery to use e.g. ("sockeye_whonnock", "adultchinook_whonnock", "chinook_albion").}
-#'  \item{fitModel}{Runs EM algorithm based on object values for input. Input: 'simulatedDate' - logical if wanting to fit to simulatd data (default = FALSE), 
-#'  'control' - list containing controlOptimization arguments as well as '$include_test_fishery' - logical to include or exclude test fishery catch information in the model,
-#'  '$adjust_lengths' - logical whether or not to adjust measured lengths for beam spreading, and '$test_fishery_weights' - values to apply for weighting the test fishery. Defaults are 
-#'  whatever values are currently stored in the model object, which may be from the previous run. Results are saved as part of object: \code{$params_estimated} and also returns 
-#'  the list of estimates.}
-#'  \item{simulate}{Simulate the model for the counts on the 'est_date' and 'ndays' with parameter values equal to 'params_estimated' within the object. See \code{?simulateGivenData} for details.}
-#'  \item{plotMix}{Plot the fitted mixture model as a histogram. Input: 'day' (default = 1), 'include_proportion_labels' - logical (default = FALSE), '...' - additional plot arguments.}
-#'  \item{plotTestFishery}{Plot Pearson residuals for the test fishery data (CPUE - Nq) against each species, test fishery, and net type.}
-#'  \item{plotBeamSpreading}{Plot estimated beam spreading effects against sonar range.}
-#' }
-#'
-#' @returns An R6 object with methods and values used for fitting species composition models.
-#'
-#' @examples
-#' self <- speciesCompModel$new(species = c("largeresident", "jackchinook", "sockeye", "adultchinook"), site = "Mission", date = "2023-08-05")
-#' 
+#' @importFrom R6 R6Class
 #' @export
-speciesCompModel <- R6Class("SpeciesComp",
+speciesCompModel <- R6::R6Class("SpeciesCompModel",
   public = list(
+    # --- Fields ---  
     species_info = NULL,
     est_date = NULL,
     ndays = NULL,
     data_list = NULL,
     data_info = NULL,
     fit_info = NULL,
-    model = NULL,
     sonar_lengths = NULL,
     test_fishery_catch = NULL,
     salmon_counts = NULL,
     params_estimated = list(),
     params_fixed = list(),
     params_init = list(),
-    estimates = list(),
     sim_data = NULL,
     default_parameters = NULL,
     prior_distributions = NULL,
     prior_jacobians = NULL,    
     
+    #' @description Initialize the R6 object
+    #' @param species vector of species names  e.g. c("largeresident", "jackChinook", "sockeye", "adultchinook").
+    #' @param date Date that you will estimate. Place holder but does not need to be set.
+    #' @param ndays Number of days to combine, defaults to 1.
+    #' @param site Choose between "Mission" or "Qualark", roll angle is set be default based on site.
+    #' @param roll_angle The roll angle that the sonar is set to (default = NULL).
+    #' @param feasible_lengths Lower and upper bound of feasible lengths that can be measured on the sonar to remove infeasible (default = c(10, 120)).    
     initialize = function(species = c("jackchinook", "sockeye", "adultchinook"), date = NULL, ndays = 1, site = NULL, roll_angle = NULL, feasible_lengths = c(10, 120)) {
       if( missing(site) ) stop("Need to initialize with a site = 'Mission' or 'Qualark'")
       if( !site %in% c("Mission", "Qualark") ) stop("Need to initialize with a site = 'Mission' or 'Qualark'")
@@ -112,7 +93,8 @@ speciesCompModel <- R6Class("SpeciesComp",
                                        dlog_sigma = default_prior, dmu = default_prior, dlogit_delta_mu = default_prior, dlog_sigma0 = default_prior,
                                        dsmallresident = default_prior, dlargeresident = default_prior)                                       
     },
-    ## Set the species names: Convenient and for printing:
+    #' @description Update the R6 object with species names to fit in a model.
+    #' @param species Character vector with options are "smallresident", "largeresident", "pink", "sockeye", "coho", "chum", "jackchinook", "adultchinook", "smalladultchinook", "largeadultchinook"
     setSpecies = function(species = NULL){
       if(!is.null(species)){
         if(!all(species %in% self$species_info$species)){
@@ -122,17 +104,29 @@ speciesCompModel <- R6Class("SpeciesComp",
         self$species_info <- speciesCheck(species)
       }
     },
-    ## Set date:
+    #' @description Update the estimation date and number of days to use. 
+    #' @param date Date to change the analysis date to.
+    #' @param ndays Number of days to combine.
     setDate = function(date = NULL, ndays = NULL){
       if(!is.null(date)) self$est_date <- checkDate(date)
       if(!is.null(ndays)) self$ndays <- ndays
     },
+    #' @description Control optimization of the EM algorithm. 
+    #' @param control List with values `$tolerance` what difference is okay (default 1e-8), `$maxiters` maximum iterations of EM algorithm (default 1000), `$relative_difference` true or false to choose relative vs absolute difference on each iteration of algorithm, `$verbose` true or false to print details of EM algorithm.
     controlOptimization = function(control = list()){
       self$fit_info$tolerance <-  extractControls(control$tolerance, 1e-8)
       self$fit_info$maxiters <-  extractControls(control$maxiters, 1000)
       self$fit_info$relative_difference<- extractControls(control$relative_difference, 1000)
       self$fit_info$verbose <- extractControls(control$verbose, FALSE)
     },
+    #' @description Function to process input data for analysis. Does the main data processing and adds a few columns needed elsewhere for the entire dataset added to make it fast and easy to do different days.
+    #' @param sonar_counts Data frame of sonar counts in standard format.
+    #' @param sonar_lengths Data frame of sonar lengths in standard format.
+    #' @param test_fishery_counts List of dataframes named after the test fishery (e.g. 'whonnock' or 'albion')
+    #' @param include_tangled Logical whether to use the tangled fish in the gilnet. 
+    #' @param dropN Minimum number of observations to keep length measurements per hour/bin/bank etc. if > dropN (default 2) but not always necessary. 
+    #' @param salmon_passage_table Data frame that has the total number of salmon predicted each day at the site.
+    #' @param feasible_lengths Minimum and maximum lengths that are feasible. Set by default but can be changed here.
     processData = function(sonar_counts, sonar_lengths, test_fishery_counts = NULL, include_tangled = TRUE, dropN = 2, salmon_passage_table = NULL, feasible_lengths = NULL){
       if(!is.null(feasible_lengths)) self$data_info$feasible_lengths <- feasible_lengths
       if(!is.null(test_fishery_counts)) self$fit_info$include_test_fishery <- TRUE
@@ -147,9 +141,27 @@ speciesCompModel <- R6Class("SpeciesComp",
         if(!is.null(salmon_passage_table)) process_mission_salmon_passage(self, salmon_passage_table)
       }
     },
+    #' @description Set species length parameter information 
+    #' @param mu Named vector the user wants to set as default values \code{c("largeresident" = 38)}.
+    #' @param sigma Named vector the user wants to set as default values e.g. \code{c("largeresident" = 2.5)}.
+    #' @param proportion_adultchinook Named vector that sets default proportions of Chinook e.g. \code{c("jackchinook" = 0.05, "adultchinook" = 0.95)}.
+    #' @param test_fishery_lengths Data frame that contains test fishery lengths for use of parameter estimation default values.
+    #' @param ndays Number of prior days to use from test fishery lengths (default = 6).
     setSpeciesLengths = function(mu = NULL, sigma = NULL, proportion_adultchinook = NULL, test_fishery_lengths = NULL, ndays = 6){
       set_species_lengths(self, mu, sigma, proportion_adultchinook, test_fishery_lengths, ndays)
     },
+    #' @description Set the model parameters before fitting with EM algorithm, including which values to fix and which to fit.
+    #' @param fixed_parameters Which parameters to hold fixed (default \code{c("mu", "sigma", "proportion_jackchinook")}).
+    #' @param fixed_values List provided by the user to hold particular values fixed, if nothing provided but parameters are held fixed then default values will be used.
+    #' @param initial_values List provided by the user to improve fitting time for estimated parameters, default are used if not provided.
+    #' @param formula_proportions list of formulas to use for alpha for each species, if \code{list("all" = ~ factor(day))}, then each species is given the same formula, except jack chinook are treated separately.
+    #' @param formula_lengths Formula for how to deal with beam spreading (default = \code{~beamWidth.cm}, 
+    #' @param date Date (optional) to change analysis date.
+    #' @param ndays Number of days to combine (optional).
+    #' @param species Character vector (optional) of species names for analysis.
+    #' @param delta_mu_bounds Matrix or vector to schoose how much the mean length of each species can vary. Matrix must have nrows of number of species. Otherwise a vector is length 2 and declares lower and upper for all.
+    #' @param qinv_names Vector of characters to allow catchability to vary with combinations e.g. \code{c("species", "fishery", "net_type")}.
+    #' @param test_fishery_spp Vector of joined species and test fishery names to used e.g. ("sockeye_whonnock", "adultchinook_whonnock", "chinook_albion").
     setModelParameters = function(fixed_parameters = c("mu", "sigma", "proportion_jackchinook"),
                                   fixed_values = list(), initial_values = list(),
                                   formula_proportions = list(),
@@ -169,6 +181,10 @@ speciesCompModel <- R6Class("SpeciesComp",
       set_model_proportions(self, formula_proportions)
       set_model_parameters(self, fixed_parameters, fixed_values, initial_values, delta_mu_bounds)      
     },
+    #' @description EM algorithm for fitting the joint species composition model.
+    #' @param simulatedData Logical if intending to use simulated data instead of real data (default  FALSE).
+    #' @param control List containing \code{controlOptimization} arguments as well as '$include_test_fishery' - logical to include or exclude test fishery catch information in the model, '$adjust_lengths' logical include beam spreading adjusment, and '$test_fishery_weights' the model weights for the test fishery.
+    #' @return List of parameter estimates, which is also stored in the \code{params_estimated} field of the R6 object.
     fitModel = function(simulatedData = FALSE, control = list()){
       self$controlOptimization(control)
       self$fit_info$include_test_fishery <- extractControls(control$include_test_fishery, self$fit_info$include_test_fishery)
@@ -177,24 +193,36 @@ speciesCompModel <- R6Class("SpeciesComp",
     
       fit_joint_model(self)
     },
+    #' @description Simulate the model for the counts on the 'est_date' and 'ndays' with parameter values equal to 'params_estimated' within the object.
     simulate = function(){
-      simulateGivenData(self)
+      simulate_given_data(self)
     },
+    #' @description Define Prior distributions (or penalty functions) for fitting the joint species composition model.
+    #' @param priors List of prior distributions. Defaults to \code{\(...){0}}.
+    #' @param includeJacobian Logical of whether or not to include jacobian transformation.
     setPriors = function(priors = list(), includeJacobian = TRUE){
       set_priors(self, priors = priors, includeJacobian)
     },
+#'  \item{plotMix}{Plot the fitted mixture model as a histogram. Input: 'day' (default = 1), 'include_proportion_labels' - }
+    #' @description Plot the fitted mixture model against the historgram of the length data.
+    #' @param day to plot (day = 1 is `est_date`) (default = 1).
+    #' @param include_proportion_labels Logical of whether to add text with proportions of each species (default = FALSE).
+    #' @param ... Additional plot arguments.
     plotMix = function(day = 1, include_proportion_labels = FALSE, ...){
       plot_mix(self, day = day, include_proportion_labels = include_proportion_labels, ...)
     },
+    #' @description Plot Pearson residuals for the test fishery data (CPUE - Nq) against each species, test fishery, and net type.
     plotTestFishery = function(){
       plot_test_fishery(self)
     },
+    #' @description Plot estimated beam spreading effects against sonar range.
     plotBeamSpreading = function(){
       plot_beam_spreading(self)
     }
   )
 )
 
+#' @export
 default_params <- function(){
   default_parameters <- list()
   ## Expansion Line Albion: 3049 (2020 Brittany Jenewein)

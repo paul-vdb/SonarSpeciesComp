@@ -163,8 +163,8 @@ reList <- function(parsList, parsVec){
 
 #' Extract controls
 #'
-#' @param controlValue
-#' @param defualtValue
+#' @param controlValue Value passed to function
+#' @param defualtValue Value set as a default. If `controlValue` is NULL returns this value.
 #'
 #' @return either control value if it is not NULL, or default value.
 #'
@@ -249,7 +249,7 @@ estimate_daily_proportions <- function(prop, pred_df, species){
 #' @return stable version of \code{sum(x)}.
 #' 
 #' @export
-log_sum_exp(x){
+log_sum_exp <- function(x){
   C <- max(x)
   log(sum(exp(x - C))) + C ## log sum exponential
 }

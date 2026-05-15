@@ -1,5 +1,5 @@
 ---
-title: "Species Composition Model Details"
+title: "Technical Model Details"
 author: "Paul van Dam-Bates"
 date: last-modified
 output: rmarkdown::html_vignette
@@ -10,9 +10,13 @@ format:
     embed-resources: true
     theme: cosmo
 vignette: >
-  %\VignetteIndexEntry{Custom HTML Vignette}
-  %\VignetteEngine{quarto::format}
+  %\VignetteIndexEntry{Technical Model Details}
+  %\VignetteEngine{quarto::html}
   %\VignetteEncoding{UTF-8}
+knitr:
+  opts_chunk:
+    collapse: true
+    comment: '#>'
 ---
 
 ## Data Types

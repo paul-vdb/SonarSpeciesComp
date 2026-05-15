@@ -38,12 +38,43 @@ simulate(
 
 \item{control}{List that allows for controlling additional simulation parameters. See 'details' for a description of all the options.}
 }
+\value{
+A list of all simulated values.
+\itemize{
+\item{count_data}{data frame containing all the hourly counts.}
+\item{length_data{data frame containing all the length measurements.}
+\item{test_data}{vector containing the test fishery counts.}
+\item{true_proportions}{data frame of the true proportions of each species each hour, bin, and bank, including the total number of fish, N.}
+}
+}
 \description{
 Function to simulate sonar lengths and test fishery data to test hydroacoustic species composition model.
+}
+\details{
+Simulations are done such that fish proportions can vary through the day, but measurements are taken according to a stratified design. This is done by
+simulating the number of fish according to a multinomial proportional to a normal distribution for each fish each hour, and each distance bin from shore, along with
+a sit proportion for each bank. Lengths are adjusted by any beam spreading terms provided, and distance from shore is drawn as a uniform distribution for each sonar bin
+distances, assumed to be 10 m (e.g. sonar bin 1 is 0-10 m).
+
+User input options for control are
+\itemize{
+\item{muTime}{Vector containing the mean times that each fish species migrates. Assumed to be 12.}
+\item{sigmaTime}{Vector containing the standard devation of times that each fish species migrates. Assumed to be 8. Fish timing is based on a normal distribution so large stanard deviation will tend towards no trend.}
+\item{muDist}{Vector containing the mean distance that each fish species migrates. Assumed to be 10.}
+\item{sigamDist}{Vector containing the standard deviation that each fish species migrates. Assumed to be 8. Fish distance is based on a normal distribution so large stanard deviation will tend towards no trend.}
+\item{bankProp}{Vector containing the proportion of each species on bank 1. Default is 0.5.}
+\item{tf_sonarBins}{Vector containing the distance bins that the fish are vulnerable to test fishery catch.}
+\item{tf_sonarBanks}{Vector containing the banks of the river where fish are vulnerable to test fishery catch.}
+\item{countHours}{The hours that counts are taken at. Defaults to 1:24}
+\item{lengthHours}{The hours that lengths are taken at. Defaults to seq(2, 24, 3)}
+\item{countDuration}{The number of minutes that fish are counted for. Defaults to 5.}
+\item{catchability}{The proportion of total fish, \code{sum(N)}, that are caught in the test fishery. Defaults to 0.001.}
+\item{ncaught}{The number of fish caught by the test fishery. Defaults to NULL but will override the catchability argument if provided.}
+}
 }
 \examples{
 datalist <- simulate(N = c(1000, 50000, 20000), nLengths = 20, 
                      sonarBins = c(1,2,3), sonarBanks = c(1,2), mu = c(38, 58, 70), sigma = c(4,3.5,7),
-                     beta = c(1.5, 0.8), sigmaObs)
+                     beta = c(1.5, 0.8), sigmaObs = 5.5)
 
 }

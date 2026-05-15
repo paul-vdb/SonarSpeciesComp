@@ -351,6 +351,7 @@ runEM <- function(EM, control){
 #' @return List of model estimates.
 #'
 #' @examples
+#'\dontrun{
 #' p <- c(0.2, 0.7, 0.1)
 #' mu <- c(10, 25, 40)
 #' sigma <- c(1.25, 2, 3.3)
@@ -377,7 +378,7 @@ runEM <- function(EM, control){
 #' }
 #' boxplot(diff~method+par, data = est)
 #' abline(h = 0, col='red')
-#'
+#'}
 #' @export
 basicMixtureModel <- function(x, K = NULL, mu = NULL, sigma = NULL, prob = NULL, mu_fixed = NULL, sigma_fixed = NULL, wgts = NULL, names = NULL, control = list()){
 

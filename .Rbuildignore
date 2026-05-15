@@ -1,3 +1,7 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
 ^package_setup\.R$
+^example_data$
+^vignettes$
+^vignettes/\.quarto$
+^vignettes/*_files$

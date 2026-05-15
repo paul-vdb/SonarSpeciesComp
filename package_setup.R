@@ -15,11 +15,17 @@ library(usethis)
 # use_description(fields = list(), check_name = TRUE, roxygen = TRUE)
 
 use_package("RTMB")
+use_package("R6")
 # use_package("dplyr")
 # use_package("ggplot2")
 
-use_build_ignore("package_setup.R")
+use_build_ignore(c("package_setup.R", "example_data"))
+use_vignette("SpeciesCompMethods.qmd", "Technical Model Details")
+
+load("data/Mission2025.Rdata")
+use_data(mission_2022)
+use_data(mission_2025)
 
 usethis::use_tidy_description()
-
-document()
+devtools::document()
+devtools::check()

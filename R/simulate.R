@@ -184,11 +184,11 @@ simulate <- function(N = c(1000, 5000, 2000),
 #' Simulate Lengths and Test Fishery Data:
 #'
 #' @export
-simulateGivenData <- function(speciesComp){
+simulate_given_data <- function(self){
 
-  if(is.null(speciesComp$estimatedParameters)) stop("Must 'fitModel' prior to calling simulate.")
-  params <- speciesComp$estimatedParameters
-  dataList <- speciesComp$analysisData
+  if(is.null(self$params_estimated)) stop("Must 'fitModel' prior to calling simulate.")
+  params <- self$params_estimated
+  dataList <- self$data_list
   ## Parameter Processing
   Kchin <- length(params$muChin)
   K0 <- length(params$mu)
@@ -249,7 +249,7 @@ simulateGivenData <- function(speciesComp){
       tfcount <- rbind(tfcount, rmultinom(1, prob = prob, size = sum(dataList$testFisheryCounts[d,]))[,1])
     }
     colnames(tfcount) <- colnames(dataList$testFisheryCounts)
-    dataList$testFisheryCounts <- tfcount
+    dataList$test_fishery_counts <- tfcount
   }
-  speciesComp$simData <- dataList
+  speciesComp$sim_data <- dataList
 }
