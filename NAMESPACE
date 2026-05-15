@@ -52,7 +52,3 @@ export(speciesCompModel)
 export(speciesLabels)
 import(RTMB)
 importFrom(R6,R6Class)
-useDynLib(SonarSpeciesComp)
-
-# Edited by hand
-import("RTMB")
