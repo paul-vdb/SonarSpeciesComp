@@ -383,6 +383,9 @@ process_mission_lengths <- function(self, sonar_counts, sonar_lengths, dropN = 2
 #' @param test_fishery_counts Data frame in standard format for Whonnock catch.
 #' @param tangle Logical whether to include or exclude tangled counts.
 #'
+#' @details input data frame should have columns start_out, full_out, start_in, full_in along with TRIP_DTT, and net_length. The other 
+#' required columns are generally `Sockeye Adult Gilled` and `Sockeye Adult Tangled`.
+#'
 #' @return No object returned, appends test fishery catch to \code{self$test_fishery_catch[["whonnock"]]}
 #'
 #' @export
@@ -417,6 +420,12 @@ process_whonnock_catch <- function(self, test_fishery_counts, tangled = TRUE){
   tmp <- data.frame("adultchinook" = test_fishery_counts$`Chinook Adult Gilled` + tangled*test_fishery_counts$`Chinook Adult Tangled`)
   out <- cbind(out, tmp)
 
+  tmp <- data.frame("coho" = test_fishery_counts$`Coho All Gilled` + tangled*test_fishery_counts$`Coho All Tangled`)
+  out <- cbind(out, tmp)
+
+  tmp <- data.frame("chum" = test_fishery_counts$`Chum All Gilled` + tangled*test_fishery_counts$`Chum All Tangled`)
+  out <- cbind(out, tmp)
+
   out <- out |> within(chinook <- adultchinook + jackchinook)
   
   out <- out |> aggregate(cbind(pink, sockeye, jackchinook, adultchinook, chinook, effort) ~ Date, sum)
@@ -426,6 +435,13 @@ process_whonnock_catch <- function(self, test_fishery_counts, tangled = TRUE){
   self$test_fishery_catch[["whonnock"]] <- out
 }
 
+#' Process Mission Salmon Passage
+#'
+#' @param self R6 speciesCompModel Object.
+#' @param salmon_passage_table Data frame in standard format for Mission count based on Right and Left Bank.
+#'
+#' @return No object returned, appends salmon counts \code{self$salmon_counts}
+#'
 #' @export
 process_mission_salmon_passage = function(self, salmon_passage_table){
   ## Check names in dataframes are present:
@@ -456,6 +472,14 @@ process_mission_salmon_passage = function(self, salmon_passage_table){
   self$salmon_counts <- long_salmon
 }
 
+#' Set Daily Data
+#'
+#' @param self R6 speciesCompModel Object.
+#'
+#' @details Process daily data for the model to prepare for analysis.
+#'
+#' @return No object returned, appends a data list with all the daily data needed for the model \code{self$data_list}
+#'
 #' @export
 set_daily_data <- function(self){
 
@@ -517,7 +541,16 @@ set_daily_data <- function(self){
   self$data_list$total_salmon <- salmon_counts |> aggregate(count~Date, sum)
 }
 
-## Add Roxygen
+#' Set Model Proportions
+#'
+#' @param self R6 speciesCompModel Object.
+#' @param formula List of formulas for proportions of different species.
+#'
+#' @details If formula in list \code{list("all" = ~factor(day))} then this is applied to all species except Chinook. Default formula is currently
+#' \code{~-1+stratum:factor(day)}.
+#'
+#' @return No object returned, appends a data list with all the daily data needed for the model \code{self$data_list}
+#'
 #' @export
 set_model_proportions <- function(self, formula = list()){
   if(self$ndays == 1)
@@ -553,6 +586,17 @@ set_model_proportions <- function(self, formula = list()){
   self$data_list$X_proportions[["jackchinook"]]  <- model.matrix(formula_jc, data = self$data_list$pred_df)
 }
 
+#' Set Length Adjustment
+#'
+#' @param self R6 speciesCompModel Object.
+#' @param formula Formula for how to model beam spreading.
+#'
+#' @details Default formula is \code{~ beamWidth.cm} will use mean correction of L.cm - beta_0 - beta_1 * beamWidth.cm. Other suggestion
+#' is to use SonarBin. Any columns available within \code{self$data_list$length_data} is available here.
+#'
+#' @return No object returned, appends a data list with all the daily data needed for the model \code{self$data_list$X_length}
+#'
+#' @export
 set_length_adjustment <- function(self, formula = NULL){
   formula <- extractControls(formula, ~ beamWidth.cm)
   ## Beam Width Adjustment or potentially just bins, or nothing (adjustLengths = FALSE)
@@ -561,6 +605,21 @@ set_length_adjustment <- function(self, formula = NULL){
   self$fit_info$adjust_lengths <- TRUE
 }
 
+#' Set Species Length
+#'
+#' @param self R6 speciesCompModel Object.
+#' @param mu Named vector of lengths to assume in the model e.g. \code{c("largeresident" = 35)}.
+#' @param sigma Named vector of lengths to assume in the model e.g. \code{c("largeresident" = 2.5)}.
+#' @param proportions_chinook Proportion of Chinook that are different age/size classes ("jackchinook", "adultchinook").
+#' @param test_fishery_lengths Data frame with columns ("FL.cm", "Date", "Species").
+#' @param ndays Number of days to include for estimating expected mean and variance of lengths for each species.
+#'
+#' @details If a mu value is not provided and test_fishery_lengths are, then we will try and estimate mean and variance based on the 
+#' number of days provided (default = 7). If not enough catches are available, or test fishery data is not provided, then default values are used.
+#' For Chinook, if proportions_chinook is not provided, we attempt to estimate this through a mixture model.
+#'
+#' @return No object returned, appends a intial values to model object `self`, \code{self$default_parameters}.
+#'
 #' @export
 set_species_lengths <- function(self, mu = NULL, sigma = NULL, proportions_chinook = NULL, test_fishery_lengths = NULL, ndays = 7){
 
@@ -633,6 +692,17 @@ set_species_lengths <- function(self, mu = NULL, sigma = NULL, proportions_chino
   self$default_parameters$proportion_adultchinook <- chinook_list$p[2:nchinook]/(1-chinook_list$p[1])
 }
 
+#' Fit Chinook Lengths
+#'
+#' @param x Vector of Chinook length values.
+#' @param mu_chin Named vector with mean chinook values assumed.
+#' @param sigma Named vector with standard deviation of chinook values assumed.
+#' @param proportions_chin Named vector of expected proportion of each Chinook age/size class.
+#' @param mu_fixed Named vector of mean lengths that were provided by the user to hold fixed.
+#' @param sigma_fixed Named vector of standard deviation of lengths that were provided by the user to hold fixed.
+#'
+#' @return List with mean, standard deviation, and proportions for Chinook.
+#'
 #' @export
 fitChinookLengths <- function(x, chinook_names, mu_chin, sigma_chin, proportions_chin, mu_fixed = NULL, sigma_fixed = NULL){
     nchinook <- length(chinook_names)
@@ -732,6 +802,18 @@ fitChinookLengths <- function(x, chinook_names, mu_chin, sigma_chin, proportions
     return(list(mu = mu_est, sigma = sigma_est, p = p_est))
 }
 
+#' Set Model Parameters
+#'
+#' @param self R6 speciesCompModel Object.
+#' @param fixed_parameters Character vector with entire parameters to hold fixed.
+#' @param fixed_values List with names equal to parameters and named vectors providing fixed values.
+#' @param initial_values List with names equal to parameters and named vectors providing initial values.
+#' @param delta_mu_bounds Matrix (first column lower bound, second upper bound) or vector (lower bound, upper bound) (Defaults to (-1,1)).
+#'
+#' @details Set initial values and fixed values for running the species composition model. Intended to be updated before \code{self$fitModel}.
+#'
+#' @return No object returned, appends \code{self$params_fixed} and \code{self$params_init}
+#'
 #' @export
 set_model_parameters <- function(self, fixed_parameters = c("mu", "sigma", "proportion_jackchinook"),
                                   fixed_values = list(), initial_values = list(),
@@ -785,6 +867,13 @@ set_model_parameters <- function(self, fixed_parameters = c("mu", "sigma", "prop
   if("proportion_adultchinook" %in% names(fixed_values)) self$params_fixed$proportion_adultchinook <- fixed_values$proportion_adultchinook
 }
 
+#' Process Albion Catch
+#'
+#' @param self R6 speciesCompModel Object.
+#' @param albion_catch Data frame with columns "CRPT_DTT", "NET_START_OUT", "NET_FULL_OUT", "NET_START_IN", "NET_FULL_IN", and "NET_CONFIG".
+#'
+#' @return No object returned, appends test fishery catch to `self`, \code{self$test_fishery_catch[["albion"]]}.
+#'
 #' @export
 process_albion_catch <- function(self, albion_catch){
   ## Process Date:
@@ -826,123 +915,3 @@ process_albion_catch <- function(self, albion_catch){
   albion_total <- albion_total |> within(net_type <- ifelse(grepl("SP Chum", NET_CONFIG, ignore.case=TRUE), "chum", net_type))
   self$test_fishery_catch[["albion"]] <- albion_total
 }
-
-# self <- speciesComp$new(
-            # species = c("largeresident", "jackchinook", "sockeye", "adultchinook"), 
-            # site = "Mission", date = "2025-08-08",  ndays = 3)
-# self$processData(sonar_counts = sonarCounts, sonar_lengths = sonarLengths, test_fishery_counts = list(whonnock = testFisheryCounts, albion = albion), 
-  # include_tangled = TRUE, dropN = 2, salmon_passage_table = salmonCounts, feasible_lengths = c(10,120))
-
-# test_fishery_lengths <- testFisheryLengths
-# sonar_counts <- sonarCounts
-# sonar_lengths <- sonarLengths
-# test_fishery_counts <- testFisheryCounts
-# include_tangled <- TRUE
-# dropN <- 2
-# salmon_passage_table <- salmonCounts
-# feasible_lengths <- c(10,120)
-
-# self$setSpeciesLengths(test_fishery_lengths = testFisheryLengths, ndays = 6)
-
-# self$setModelParameters(fixed_parameters = c("mu", "sigma", "proportion_jackchinook", "beta"),
-                                  # fixed_values = list(beta = c(0, 1)), initial_values = list(),
-                                  # formula_proportions = list("all" = ~factor(day)),
-                                  # delta_mu_bounds = list(lower = -2.5, upper = 2.5),
-                                  # formula_lengths = ~ beamWidth.cm, adjust_lengths = TRUE)
-
-# pars_est <- fitJointModel(self)
-
-# (1/pars_est$q)
-# pars_est$N_daily
-# pars_est$mu
-# pars_est$mu_adj
-# pars_est$beta
-
-# self$data_list$test_fishery_catch
-# self$data_list$total_salmon
-
-# self$params_init
-# self$params_fixed
-
-# self$data_list$X_length
-# self$data_list$X_proportions
-# self$species_info$species_predict
-
-# test_fishery_catch <- data.frame(Date = rep(seq(self$est_date - self$ndays + 1, self$est_date, 1), each = 3), 
-                                 # fishery = rep(c("whonnock", "whonnock", "albion"), 3), 
-                                 # species = c("sockeye", "chinook", "chinook"),
-                                 # catch = c(25,6,12,32,8,15,42,9,7),
-                                 # effort = rep(1, 9))
-# test_fishery_catch$day <- as.numeric(factor(test_fishery_catch$Date))
-# test_fishery_catch$q_index <- sapply(paste(test_fishery_catch$species,test_fishery_catch$fishery, sep = "_"), FUN = function(x) { which(x == self$data_info$test_fishery_input)})
-# test_fishery_catch$N_index <- sapply(test_fishery_catch$species, FUN = function(x) { which(x == self$species_info$species_predict)})
-
-
-
-
-# calculateResiduals <- function(self){
-  # Length Residuals:
-  # pars <- self$estimatedParameters
-  # mu <- pars$mu
-  # muChin <- pars$muChin
-  # Parameter Processing
-  # Kchin <- length(muChin)
-  # K0 <- length(mu)
-  # K <- Kchin + K0
-  # muc <- c(mu, muChin)
-  # alpha <- pars$alpha
-  # beta <- pars$beta
-  # alphaJackChinook <- pars$alphaJackChinook
-  
-  # Standard deviation incld. observation error
-  # logsigma_ <- c(pars$logsigma, pars$logsigmaChin)
-  # sigma <- sqrt(exp(2*logsigma_) + exp(2*pars$logsigma0))
-
-  # Set up proportions. alpha parameter for predicting proportions. 
-  # Xalpha is a list of design matrices for each species.
-  # np <- nrow(self$analysisData$predDF)
-  # logitp <- matrix(0, nrow = np, ncol = K0) ## +1 is Chinook.
-  # indx0 <- 1
-  # for( i in 1:K0 ){
-    # nc <- ncol(self$analysisData$Xprop[[i]]) 
-    # indx1 <- indx0 + nc - 1
-    # logitp[,i] <- as.matrix(self$analysisData$Xprop[[i]]) %*% alpha[indx0:indx1]
-    # indx0 <- indx1 + 1
-  # }
-
-  # logitpjack <- as.matrix(self$analysisData$XpropChin) %*% alphaJackChinook
-  # pjack <- 1/(1+exp(-logitpjack))
-
-  # p <- matrix(0, nrow = np, ncol = K)
-  # for( i in 1:np ) {
-    # p[i, 1:(K0+1)] <- expitM(logitp[i,])  
-    # p[i, (K0+1):K ] <- p[i, (K0+1)]*c(pjack[i], (1-pjack[i])*pars$pAdultChinook)
-  # }
-
-  # if(self$adjustLengths){
-    # L <- self$analysisData$lengthData$L.cm.adj - as.matrix(self$analysisData$Xlength) %*% beta
-  # }else{
-    # L <- self$analysisData$lengthData$L.cm.adj
-  # }
-  # wgts <- self$analysisData$lengthData$weights
-  # pobs <- p[self$analysisData$lengthData$grpIndex,]
-  
-  # id <- sapply(1:length(L), FUN = function(i){which.max(pobs[i,]*dnorm(L[i], muc, sigma))}) ## Definitely not this one.
-  # residuals <- sapply(1:length(L), FUN = function(i){(L[i]-muc[id[i]])/sigma[id[i]]}) ## Definitely not this one.
-    
-  
-  # self$analysisData$lengthData$residuals <- residuals
-  # self$analysisData$lengthData$speciesid <- self$Species[id]
-    
-  # boxplot(residuals ~ speciesid, data = self$analysisData$lengthData, xlab = "Species", ylab = "Residuals")
-  # abline(h = 0, col = 'red')
-  # qqnorm(residuals)
-  # qqline(residuals)
-  # plot(x = 1:length(L), y = residuals, xlab = "Index", ylab = "Residuals", cex = self$analysisData$lengthData$weights/(median(self$analysisData$lengthData$weights)))
-  # abline(h = 0, col = 'red', lty = 1)
-  # abline(h = c(-1.96, 1.96), col = 'red', lty = 2)
-
-  # Can print what the 'outlier' values are.
-  # self$analysisData$lengthData |> subset(abs(residuals) > 1.96)
-
-# }
