@@ -49,6 +49,10 @@ fit_joint_model <- function(self){
   
   ## pars_outer <- pars_init
   EMstep <- function(pars_outer){
+    # Necessary in packages
+    "c" <- ADoverload("c")
+    "[<-" <- ADoverload("[<-")
+  
     ll <- 0
     
     ## Parameter Processing
@@ -124,6 +128,9 @@ fit_joint_model <- function(self){
     ## Inner Objective Function
     ## ------------------------------------------
     inner_objective_fn <- function(pars_inner){
+      # Necessary in packages
+      "c" <- ADoverload("c")
+      "[<-" <- ADoverload("[<-")
 
       ## Parameter Processing
       ## 1) Mean Fish Size:
@@ -413,6 +420,10 @@ basicMixtureModel <- function(x, K = NULL, mu = NULL, sigma = NULL, prob = NULL,
   pars_fixed <- list(mu_fixed = mu_fixed, log_sigma_fixed = fn_null(log, x=sigma_fixed))
   
   EMstep <- function(pars_outer){
+    # Necessary in packages
+    "c" <- ADoverload("c")
+    "[<-" <- ADoverload("[<-")
+
     ll <- 0
     n <- length(x)
     mu <- joinPars(pars_outer$mu, pars_fixed$mu, names)
@@ -436,6 +447,10 @@ basicMixtureModel <- function(x, K = NULL, mu = NULL, sigma = NULL, prob = NULL,
     ## Inner Objective Function
     ## ------------------------------------------
     innerObjectiveFn <- function(pars_inner){
+      # Necessary in packages
+      "c" <- ADoverload("c")
+      "[<-" <- ADoverload("[<-")
+    
       mu <- joinPars(pars_inner$mu, pars_fixed$mu, names)
       log_sigma <- joinPars(pars_inner$log_sigma, pars_fixed$log_sigma, names)  ## *** data input
       sigma <- exp(log_sigma)
@@ -467,20 +482,3 @@ basicMixtureModel <- function(x, K = NULL, mu = NULL, sigma = NULL, prob = NULL,
   estimates$proportion <- joinPars(fn_null(expitM, x=pars_est$logit_prob), fn_null(expitM, x=pars_fixed$logit_prob), names)
   estimates
 }
- # est <- NULL
- # for( i in 1:500 ){
-    # N <- c(2000, 1000)
-    # nsmp <- 25
-    # p1 <- c(0.3, 0.4, 0.3)
-    # p2 <- c(0.15, 0.65, 0.2)
-    # ptrue <- (p1*N[1] + p2*N[2])/sum(N)
-    # id1 <- sample(3, nsmp, prob = p1, replace = TRUE)
-    # id2 <- sample(3, nsmp, prob = p2, replace = TRUE)
-    # x1 <- rnorm(nsmp, c(25, 45, 65)[id1], c(3, 3.7, 2.5)[id1])
-    # x2 <- rnorm(nsmp, c(25, 45, 65)[id2], c(3, 3.7, 2.5)[id2])
-    # wgts <- c(rep(N[1]/nsmp, nsmp), rep(N[2]/nsmp, nsmp))
-    # fit <- basicMixtureModel(x=c(x1, x2), K = 3, prob = c(0.2, 0.4, 0.4), mu = c(20, 40, 60), wgts = wgts)
-    # fit2 <- basicMixtureModel(x=c(x1, x2), K = 3, prob = c(0.2, 0.4, 0.4), mu = c(20, 40, 60))
-    # est <- rbind(est, data.frame(par = c("p1", "p2", "p3"), diff = fit$proportion[order(fit$mu)] - ptrue, method = "weighted"))
-    # est <- rbind(est, data.frame(par = c("p1", "p2", "p3"), diff = fit2$proportion[order(fit2$mu)] - ptrue, method = "unweighted"))
- # }
