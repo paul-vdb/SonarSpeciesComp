@@ -1,6 +1,6 @@
 #' Base class for species composition estimation methods
 #'
-#' An R6 base class that is used to step through all the different setups and steps of estimating species composition on the Fraser River (Qualark and Mission) using Hydroacoustics and the test fishery.
+#' @description An R6 base class that is used to step through all the different setups and steps of estimating species composition on the Fraser River (Qualark and Mission) using Hydroacoustics and the test fishery.
 #'
 #' @field species_info List with information about species naming and ordering.
 #' @field est_date Date for the day of analysis.
