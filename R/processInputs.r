@@ -249,8 +249,11 @@ default_params <- function(){
 
 #' @export
 set_priors <- function(self, priors = list(), includeJacobian = TRUE){        
-  default <- function(...){0}
- 
+  default <- function(...){
+    "c" <- ADoverload("c")
+    "[<-" <- ADoverload("[<-")
+    0
+  } 
   self$prior_distributions <- list()
   self$prior_jacobians <- list()
                                       
