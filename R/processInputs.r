@@ -396,7 +396,7 @@ process_mission_lengths <- function(self, sonar_counts, sonar_lengths, dropN = 2
   sonar_lengths <- sonar_lengths |> within(beamWidth.cm <- R.m*0.3*pi/180*100)
 
   ## Will remove single lengths measured in an hour:
-  sonar_lengths <- sonar_lengths |> filter(nLengths > dropN)
+  sonar_lengths <- sonar_lengths |> subset(nLengths > dropN)
 
   ## I don't like SonarAim being called 3 on right bank if only one aim.
   sonar_lengths <- sonar_lengths |> within(SonarAimF <- ifelse(SonarBank == "Right Bank", "Aim3", SonarAim))
