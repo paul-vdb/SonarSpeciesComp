@@ -4,11 +4,6 @@
 \alias{speciesCompModel}
 \title{Base class for species composition estimation methods}
 \description{
-Base class for species composition estimation methods
-
-Base class for species composition estimation methods
-}
-\details{
 An R6 base class that is used to step through all the different setups and steps of estimating species composition on the Fraser River (Qualark and Mission) using Hydroacoustics and the test fishery.
 }
 \section{Public fields}{

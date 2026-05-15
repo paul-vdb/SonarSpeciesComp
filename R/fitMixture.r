@@ -276,7 +276,7 @@ fit_joint_model <- function(self){
 #' @return List of model estimates (`$params_estimated`), convergence details (`$convergence`), 
 #' estimate of daily species passage (`$N_daily`), and daily proportions (`$p_daily`).
 #'
-#' @importFrom RTMB
+#' @import RTMB
 #' @export
 runEM <- function(EM, control){
   start <- EM$par()
