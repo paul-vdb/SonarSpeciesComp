@@ -672,7 +672,7 @@ set_species_lengths <- function(self, mu = NULL, sigma = NULL, proportions_chino
     if(!all(c("FL.cm", "Date", "Species") %in% names(test_fishery_lengths)))
       stop("test_fishery_lengths dataframe must have 'Date', 'FL.cm', and 'Species'.")
 
-    if(!is.POSIXct(test_fishery_lengths$Date) & !is.Date(test_fishery_lengths$Date))
+    if(!inherits(test_fishery_lengths$Date, "POSIXct") & !is.Date(test_fishery_lengths$Date))
       stop("Date must be provided in a standard date format")
 
     test_fishery_lengths$Date <- as.Date(test_fishery_lengths$Date)
@@ -905,11 +905,11 @@ set_model_parameters <- function(self, fixed_parameters = c("mu", "sigma", "prop
 #' @export
 process_albion_catch <- function(self, albion_catch){
   ## Process Date:
-  if(!is.POSIXct(albion_catch$CRPT_DTT)) stop("CRPT_DTT must be of type POSIXct.")
-  if(!is.POSIXct(albion_catch$NET_START_OUT)) stop("CRPT_DTT must be of type POSIXct.")
-  if(!is.POSIXct(albion_catch$NET_FULL_OUT)) stop("CRPT_DTT must be of type POSIXct.")
-  if(!is.POSIXct(albion_catch$NET_START_IN)) stop("CRPT_DTT must be of type POSIXct.")
-  if(!is.POSIXct(albion_catch$NET_FULL_IN)) stop("CRPT_DTT must be of type POSIXct.")
+  if(!inherits(albion_catch$CRPT_DTT, "POSIXct")) stop("CRPT_DTT must be of type POSIXct.")
+  if(!inherits(albion_catch$NET_START_OUT, "POSIXct")) stop("CRPT_DTT must be of type POSIXct.")
+  if(!inherits(albion_catch$NET_FULL_OUT, "POSIXct")) stop("CRPT_DTT must be of type POSIXct.")
+  if(!inherits(albion_catch$NET_START_IN, "POSIXct")) stop("CRPT_DTT must be of type POSIXct.")
+  if(!inherits(albion_catch$NET_FULL_IN, "POSIXct")) stop("CRPT_DTT must be of type POSIXct.")
   
   if(is.null(albion_catch$NET_CONFIG)) stop("Require a column named NET_CONFIG to state Chinook or Chum  net.")
   
