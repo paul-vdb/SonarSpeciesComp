@@ -1,0 +1,144 @@
+---
+title: "Species Composition Model Workflow at Mission"
+author: "Paul van Dam-Bates"
+date: last-modified
+output: rmarkdown::html_vignette
+description: >
+  Workflow for estimating species composition at Mission.
+format: 
+  html:
+    embed-resources: true
+    theme: cosmo
+vignette: >
+  %\VignetteIndexEntry{SpeciesCompMissionWorkflow}
+  %\VignetteEngine{quarto::html}
+  %\VignetteEncoding{UTF-8}
+knitr:
+  opts_chunk:
+    collapse: true
+    comment: '#>'
+---
+
+```{r include = FALSE}
+library(SonarSpeciesComp)
+```
+
+## Introduction
+
+The R package `SonarSpeciesComp` is designed to estimate species composition, the number of each salmon species migrating past Mission, or Qualark, daily. The package can be installed using either `remotes` or `devtools` directly from `github` as:
+
+```{r, echo = TRUE, eval = FALSE}
+remotes::install_github("paul-vdb/SonarSpeciesComp")
+library(SonarSpeciesComp)
+```
+
+The package relies on building an `R6` class object, storing all the necessary information within that object, and then running methods within to fit the joint species composition model. By joint, we refer to jointly modeling test fishery catch with sonar length measurements. See `?speciesCompModel` for all the available field and methods within the model object.
+
+To start, build the basic model object as:
+```{r}
+obj <- speciesCompModel$new(date = "2022-08-01", site = "Mission")
+```
+This object will default to:
+
+1. Species: `r obj$species_info$species`.
+1. Test fishery parameters `r obj$data_info$test_fishery_input`, which results from the default "formula" varies the test fishery parameters by`r obj$data_info$test_fishery_formula`.
+1. Roll angle: `r obj$data_info$roll_angle` degrees.
+1. Feasible lengths: `r obj$data_info$feasible_lengths` cm.
+1. Date to estimate: `r obj$est_date` which defaults to today's date but should be chosen if using historical data.
+
+## Data Input
+
+At Mission, there are standardized input based on daily workflow that the model relies on. These are:
+
+1. `MergedLengths.csv` - The measured sonar lengths for the season up until the current day.
+1. `SONARMERGE export.csv` - The sonar counts for the season up until the current day.
+1. `WhonnockSpeciesComp.xlsx`, sheet = "by_set" - Test fishery catch which has date as "TRIP_DTT", set number as "FE_SET_NO" and includes species by gilled, tangled as well as "net_length", "start_out", "full_out", "start_in", and "full_in".
+1. "Whonnock Fork Lengths OtherSalmon.xlsx" - Fork lengths for Chinook (cm).
+1. "2025ABfiles.xlsx" - Excel file with sockeye and pink fork lengths (cm). We expect the column "Species" to be c("Sockeye" and "Pink"). These two length files should be joined with a new column "FL.cm" to be the fork length in cm and contains a "Date" column.
+1. "Chinook and Pinks.xlsx", sheet = "2. Salmon Passage by Bin" - Salmon passage table with columns "MissionDate" as a date and a computed column "total" that is a sum over both bins and offshore (mobile).
+1. "Albion Chinook catch and set mesh 2016-2025.xlsx" - Albion test fishery data with columns "CRPT_DTT", "NET_START_OUT", "NET_FULL_OUT", "NET_START_IN", "NET_FULL_IN", SET_NO", "NET_CONFIG", and "CATCH_QTY".
+
+The package has two years of data pre-loaded as example of what format the data should look like at Mission to successfully run the model.
+
+```{r}
+data(mission_2022, package = "SonarSpeciesComp")
+data(mission_2025, package = "SonarSpeciesComp")
+```
+
+Let's now add data to the model object via `$processData`
+
+```{r}
+obj$processData(sonar_counts = mission_2022$sonarCounts, 
+  sonar_lengths = mission_2022$sonarLengths,
+  test_fishery_counts = list(whonnock = mission_2022$whonnock, albion = mission_2022$albion), 
+  salmon_passage_table = mission_2022$salmonPassage, 
+  include_tangled = TRUE, dropN = 2, feasible_lengths = c(10,120))
+```
+
+Note that here we choose to include fish that are tangle, not just gilled by the test fishery. We drop lengths if only 2 were measured, which made a difference previously in some models but should not be necessary. Feasible lengths can be chosen during processing but is also held as internally on setup.
+
+We have now built a model object that contains the entire data set and is ready to run for individual days under varying parameterizations, including changing the number of species.
+
+## Running the Model
+
+### Setting the data:
+
+We will now choose a specific date, and the species present. In 2022 at Mission small resident fish were included. Note that species are always added in lower case with no spaces (e.g. "smallresidentfish"). We should also choose the number of days to combine in analysis to help fit the expansion line estimates.
+
+```{r}
+obj$setDate(date = "2022-08-01", ndays = 3)
+obj$setSpecies(species = c("smallresident", "largeresident", "jackchinook", "sockeye", "adultchinook"))
+```
+The next step is to choose the species mean and standard deviation lengths that will be held fixed when fitting the mixture model. Standard values are held as default in the model as:
+
+```{r}
+default_params()$mu
+default_params()$sigma
+```
+
+The mean (`mu`) and standard deviation (`sigma`) values are then set as:
+```{r}
+obj$setSpeciesLengths(mu = c("smallresident" = 22, "largeresident" = 38, "jackchinook" = 42), 
+  sigma = c("smallresident" = 2.5, "largeresident" = 3.5), 
+  test_fishery_lengths = mission_2022$testFisheryLengths, ndays = 7)
+```
+
+### Parameter Setup
+
+The user is able to influence how the species composition model is set up mostly through the `setModelParameters` function. The input includes:
+
+1. `fixed_parameters` - Here we can choose which parameters to hold completely fixed. We suggest to always choose `c("mu", "sigma")`and current default includes "proportion_jackchinook". Note that holding proportion jack Chinook fixed, still allows the proportion of total Chinook to vary, meaning it doesn't fix the total number of jack Chinook, just the proportion relative to adult Chinook. Note that there will always be `$proportion_adultchinook` that is held fixed at one if only adult Chinook are present in the model or by the user (potentially informed by the test fishery) when including small and large adult Chinook.
+
+```{r}
+obj$setModelParameters(fixed_parameters = c("mu", "sigma"))
+obj$params_fixed
+```
+
+2. `fixed_values` - List with names equal to parameters that the user can use to set the actual values to fix. Otherwise, the parameters chosen in `fixed_parameters` will be chosen based on current values held within the model object. Additional individual values in parameters can be held constant here. For example, we could choose to change the small resident size here, and potentially fix measurement error $\sigma_0 = 4$. Note that the term will appear transformed for parameters that are fit on the real scale.
+
+```{r}
+obj$setModelParameters(fixed_parameters = c("mu", "sigma"), 
+  fixed_values = list(sigma0 = 4))
+obj$params_fixed
+```
+
+3. `initial_values` - List of what to set the initial values to for the model. Things that are not set will be given default values but it may sometime help to initialize the model to make fitting faster. If we are allowing beam spreading to change by Sonar Bin, then we may initialize `beta = c(0,4,9)` as
+
+```{r}
+obj$setModelParameters(fixed_parameters = c("mu", "sigma"), 
+  fixed_values = list(), 
+  initial_values = list(beta = c(0, 0.8)))
+obj$params_init
+```
+
+4. `formula_lengths` - List of what to set the initial values to for the model. Things that are not set will be given default values but it may sometime help to initialize the model to make fitting faster. If we are allowing beam spreading to change by Sonar Bin, then we may initialize `beta = c(0,4,9)` as
+
+```{r}
+obj$setModelParameters(fixed_parameters = c("mu", "sigma"), 
+  fixed_values = list(), 
+  initial_values = list(beta = c(0, 0.6)),
+  formula_lengths = ~ 0 + SonarBin,
+  formula_proportions = list("all" = ~ 0 +))
+obj$params_init
+```
+

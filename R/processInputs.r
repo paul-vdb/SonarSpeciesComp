@@ -52,6 +52,7 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
       if( missing(site) ) stop("Need to initialize with a site = 'Mission' or 'Qualark'")
       if( !site %in% c("Mission", "Qualark") ) stop("Need to initialize with a site = 'Mission' or 'Qualark'")
       self$species_info <- speciesCheck(species)
+      if(is.null(date)) date <- Sys.Date()
       self$est_date <- checkDate(date)
       self$ndays <- ndays
 
@@ -86,10 +87,10 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
       self$test_fishery_catch <- list()
       self$default_parameters <- default_params()
       default_prior <- \(...){0}
-      self$prior_distributions <- list(dlog_q = default_prior, dbeta = default_prior, dalpha_jackchinook = default_prior, 
+      self$prior_distributions <- list(dlog_qinv = default_prior, dbeta = default_prior, dalpha_jackchinook = default_prior, 
                                        dlog_sigma = default_prior, dmu = default_prior, dlogit_delta_mu = default_prior, dlog_sigma0 = default_prior,
                                        dsmallresident = default_prior, dlargeresident = default_prior)
-      self$prior_jacobians <- list(dlog_q = default_prior, dbeta = default_prior, dalpha_jackchinook = default_prior, 
+      self$prior_jacobians <- list(dlog_qinv = default_prior, dbeta = default_prior, dalpha_jackchinook = default_prior, 
                                        dlog_sigma = default_prior, dmu = default_prior, dlogit_delta_mu = default_prior, dlog_sigma0 = default_prior,
                                        dsmallresident = default_prior, dlargeresident = default_prior)                                       
     },
@@ -203,7 +204,6 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
     setPriors = function(priors = list(), includeJacobian = TRUE){
       set_priors(self, priors = priors, includeJacobian)
     },
-#'  \item{plotMix}{Plot the fitted mixture model as a histogram. Input: 'day' (default = 1), 'include_proportion_labels' - }
     #' @description Plot the fitted mixture model against the historgram of the length data.
     #' @param day to plot (day = 1 is `est_date`) (default = 1).
     #' @param include_proportion_labels Logical of whether to add text with proportions of each species (default = FALSE).
@@ -238,7 +238,7 @@ default_params <- function(){
                               "chum_albion_vmn" = 3201, "chum_albion_chin" = 3201, "chum_albion_chum" = 3201)
   default_parameters$alpha <- c(0,0,0,0)
   default_parameters$alpha_jackchinook <- 0
-  default_parameters$beta <- c(0,0)
+  default_parameters$beta <- c(0, 0)
   default_parameters$mu <- c("smallresident" = 23, "largeresident" = 35, "pink" = 50, "sockeye" = 58, "coho" = 65, "chum" = 70, "jackchinook" = 40, "smalladultchinook" = 62, "largeadultchinook" = 80, "adultchinook" = 70)
   default_parameters$sigma <- c("smallresident" = 2.5, "largeresident" = 2.5, "pink" = 4, "sockeye" = 3.5, "coho" = 3.5, "chum" = 3, "jackchinook" = 2.5, "smalladultchinook" = 4, "largeadultchinook" = 6, "adultchinook" = 7)
   default_parameters$sigma0 <- 4.5
@@ -853,7 +853,6 @@ set_model_parameters <- function(self, fixed_parameters = c("mu", "sigma", "prop
     if(!fixed_parameters[i] %in% names(fixed_values)){
       fixed_values[[fixed_parameters[i]]] <- self$default_parameters[[fixed_parameters[i]]]
       if(fixed_parameters[i] %in% c("mu", "delta_mu", "sigma")) fixed_values[[fixed_parameters[i]]] <- fixed_values[[fixed_parameters[i]]][species]
-      
     }
   }
 
@@ -877,6 +876,7 @@ set_model_parameters <- function(self, fixed_parameters = c("mu", "sigma", "prop
   ## Set beta
   nbeta <- ncol(self$data_list$X_length)
   self$default_parameters$beta <- rep(0, nbeta)
+  names(self$default_parameters$beta) <- 1:nbeta
   extractParams(self, initial_values$beta, fixed_values$beta, self$default_parameters$beta, name = "beta")
   ## Set mu
   extractParams(self, initial_values$mu, fixed_values$mu, self$default_parameters$mu[self$species_info$species], name = "mu")  
