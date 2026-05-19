@@ -247,10 +247,17 @@ extractParams <- function(self, init_values=NULL, fixed_values=NULL, default_val
   init <- default_values
   if(!is.null(init_values)){
     if(is.null(names(init))) names(init) <- 1:length(init)
+    if(is.null(names(init_values)){ 
+      names(init_values) <- 1:length(init_values)
+      if(length(init_values) != length(default_values)) stop("Must name the parameter initial value being passed or initialize all parameter values.")
+    }
     init[names(init_values)] <- init_values
   }
   if(!is.null(fixed_values)){ 
-    if(is.null(names(fixed_values))) names(fixed_values) <- 1:length(fixed_values)
+    if(is.null(names(fixed_values))){
+      names(fixed_values) <- 1:length(fixed_values)
+      if(length(fixed_values) != length(default_values)) stop("Must name the parameter fixed values being passed or fix all parameter values.")
+    }
     init <- init[!names(init) %in% names(fixed_values)]
     if(length(init) == 0) init <- NULL
   }

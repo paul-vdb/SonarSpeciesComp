@@ -122,12 +122,12 @@ obj$setModelParameters(fixed_parameters = c("mu", "sigma"),
 obj$params_fixed
 ```
 
-3. `initial_values` - List of what to set the initial values to for the model. Things that are not set will be given default values but it may sometime help to initialize the model to make fitting faster. If we are allowing beam spreading to change by Sonar Bin, then we may initialize `beta = c(0,4,9)` as
+3. `initial_values` - List of what to set the initial values to for the model. Things that are not set will be given default values but it may sometime help to initialize the model to make fitting faster. The default beam spreading formula is `beta[1] + beta[2]*beamWidth.cm`, and we may want to set `beta = c(0,0.8)`.
 
 ```{r}
 obj$setModelParameters(fixed_parameters = c("mu", "sigma"), 
   fixed_values = list(), 
-  initial_values = list(beta = c("1"= 0, "2" = 0.8)))
+  initial_values = list(beta = c("1"= 0, "2" = 0.8), sigma0 = 4))
 obj$params_init
 ```
 
