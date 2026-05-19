@@ -25,7 +25,7 @@ library(SonarSpeciesComp)
 
 ## Introduction
 
-The R package `SonarSpeciesComp` is designed to estimate species composition, the number of each salmon species migrating past Mission, or Qualark, daily. The package can be installed using either `remotes` or `devtools` directly from `github` as:
+The R package `SonarSpeciesComp` is designed to estimate species composition, the number of each salmon species migrating past Mission, or Qualark, daily. The package can be installed using either `remotes` or `devtools` directly from GitHub as:
 
 ```{r, echo = TRUE, eval = FALSE}
 remotes::install_github("paul-vdb/SonarSpeciesComp")
@@ -41,10 +41,10 @@ obj <- speciesCompModel$new(date = "2022-08-01", site = "Mission")
 This object will default to:
 
 1. Species: `r obj$species_info$species`.
-1. Test fishery parameters `r obj$data_info$test_fishery_input`, which results from the default "formula" varies the test fishery parameters by`r obj$data_info$test_fishery_formula`.
+1. Test fishery parameters `r obj$data_info$test_fishery_input`, which results from the default "formula" varies the test fishery parameters by `r obj$data_info$test_fishery_formula`.
 1. Roll angle: `r obj$data_info$roll_angle` degrees.
 1. Feasible lengths: `r obj$data_info$feasible_lengths` cm.
-1. Date to estimate: `r obj$est_date` which defaults to today's date but should be chosen if using historical data.
+1. Date to estimate: `r obj$est_date` is what was set, but it defaults to today's date but a value should be provided.
 
 ## Data Input
 
@@ -53,10 +53,10 @@ At Mission, there are standardized input based on daily workflow that the model 
 1. `MergedLengths.csv` - The measured sonar lengths for the season up until the current day.
 1. `SONARMERGE export.csv` - The sonar counts for the season up until the current day.
 1. `WhonnockSpeciesComp.xlsx`, sheet = "by_set" - Test fishery catch which has date as "TRIP_DTT", set number as "FE_SET_NO" and includes species by gilled, tangled as well as "net_length", "start_out", "full_out", "start_in", and "full_in".
-1. "Whonnock Fork Lengths OtherSalmon.xlsx" - Fork lengths for Chinook (cm).
-1. "2025ABfiles.xlsx" - Excel file with sockeye and pink fork lengths (cm). We expect the column "Species" to be c("Sockeye" and "Pink"). These two length files should be joined with a new column "FL.cm" to be the fork length in cm and contains a "Date" column.
-1. "Chinook and Pinks.xlsx", sheet = "2. Salmon Passage by Bin" - Salmon passage table with columns "MissionDate" as a date and a computed column "total" that is a sum over both bins and offshore (mobile).
-1. "Albion Chinook catch and set mesh 2016-2025.xlsx" - Albion test fishery data with columns "CRPT_DTT", "NET_START_OUT", "NET_FULL_OUT", "NET_START_IN", "NET_FULL_IN", SET_NO", "NET_CONFIG", and "CATCH_QTY".
+1. `Whonnock Fork Lengths OtherSalmon.xlsx` - Fork lengths for Chinook (cm).
+1. `2025ABfiles.xlsx` - Excel file with sockeye and pink fork lengths (cm). We expect the column "Species" to be c("Sockeye" and "Pink"). These two length files should be joined with a new column "FL.cm" to be the fork length in cm and contains a "Date" column.
+1. `Chinook and Pinks.xlsx`, sheet = "2. Salmon Passage by Bin" - Salmon passage table with columns "MissionDate" as a date and a computed column "total" that is a sum over both bins and offshore (mobile).
+1. `Albion Chinook catch and set mesh 2016-2025.xlsx` - Albion test fishery data with columns "CRPT_DTT", "NET_START_OUT", "NET_FULL_OUT", "NET_START_IN", "NET_FULL_IN", SET_NO", "NET_CONFIG", and "CATCH_QTY".
 
 The package has two years of data pre-loaded as example of what format the data should look like at Mission to successfully run the model.
 
