@@ -150,7 +150,7 @@ plot_beam_spreading <- function(self){
   L.cm.modadj <- self$data_list$length_data$L.cm.adj - self$data_list$X_length %*% beta
   Xnew <- data.frame(R.m = 1:30, SonarBin = rep(c("Bin1", "Bin2", "Bin3"), each = 10))
   Xnew <- Xnew |> within(beamWidth.cm <- R.m*0.3*pi/180*100)
-  Xnew <- Xnew |> filter(SonarBin %in% unique(self$data_list$length_data$SonarBin))
+  Xnew <- Xnew |> subset(SonarBin %in% unique(self$data_list$length_data$SonarBin))
   predmat <- model.matrix(self$data_list$length_adjust_formula, data = Xnew)
   Xnew$adjust <- (predmat %*% beta)[,1]
   
