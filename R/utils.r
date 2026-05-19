@@ -247,7 +247,7 @@ extractParams <- function(self, init_values=NULL, fixed_values=NULL, default_val
   init <- default_values
   if(!is.null(init_values)){
     if(is.null(names(init))) names(init) <- 1:length(init)
-    init[names(init)] <- init
+    init[names(init_values)] <- init_values
   }
   if(!is.null(fixed_values)){ 
     if(is.null(names(fixed_values))) names(fixed_values) <- 1:length(fixed_values)

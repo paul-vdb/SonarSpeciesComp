@@ -127,7 +127,7 @@ obj$params_fixed
 ```{r}
 obj$setModelParameters(fixed_parameters = c("mu", "sigma"), 
   fixed_values = list(), 
-  initial_values = list(beta = c(0, 0.8)))
+  initial_values = list(beta = c("1"= 0, "2" = 0.8)))
 obj$params_init
 ```
 

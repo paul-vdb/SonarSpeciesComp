@@ -876,7 +876,6 @@ set_model_parameters <- function(self, fixed_parameters = c("mu", "sigma", "prop
   ## Set beta
   nbeta <- ncol(self$data_list$X_length)
   self$default_parameters$beta <- rep(0, nbeta)
-  names(self$default_parameters$beta) <- 1:nbeta
   extractParams(self, initial_values$beta, fixed_values$beta, self$default_parameters$beta, name = "beta")
   ## Set mu
   extractParams(self, initial_values$mu, fixed_values$mu, self$default_parameters$mu[self$species_info$species], name = "mu")  
