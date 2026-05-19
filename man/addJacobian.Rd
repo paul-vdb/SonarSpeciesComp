@@ -17,3 +17,6 @@ A function, either the jacobian originally passed as fn, or a function that only
 \description{
 Return jacobian function
 }
+\details{
+Add ADoverload to user passed functions to ensure that they work within the RTMB package.
+}

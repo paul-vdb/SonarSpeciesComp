@@ -135,6 +135,8 @@ ilogitInterval <- function(x, lower, upper){
 #' @param fn Jacobian for the specified transformation.
 #' @param includeJacobian Whether to actually use a jacobian transformation.
 #'
+#' @details Add ADoverload to user passed functions to ensure that they work within the RTMB package.
+#'
 #' @return A function, either the jacobian originally passed as fn, or a function that only returns 0.
 #'
 #' @export
@@ -146,6 +148,39 @@ addJacobian = function(fn, includeJacobian){
     0
   })
   }else{
+    env_fn = local({
+      "c" <- ADoverload("c")
+      "[<-" <- ADoverload("[<-")
+      environment()
+    })
+    environment(fn) <- env_fn
+    return(fn)
+  }
+}
+
+#' Return prior function
+#'
+#' @param fn Prior distribution
+#'
+#' @details Add ADoverload to user passed functions to ensure that they work within the RTMB package.
+#'
+#' @return A function, either the prior originally passed as fn, or a function that only returns 0. 
+#'
+#' @export
+addPrior = function(fn){
+  if(!is.function(fn)){
+    return(\(...){
+    "c" <- ADoverload("c")
+    "[<-" <- ADoverload("[<-")
+    0
+  })
+  }else{
+    env_fn = local({
+      "c" <- ADoverload("c")
+      "[<-" <- ADoverload("[<-")
+      environment()
+    })
+    environment(fn) <- env_fn
     return(fn)
   }
 }
