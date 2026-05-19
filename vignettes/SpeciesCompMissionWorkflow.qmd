@@ -118,7 +118,7 @@ obj$params_fixed
 
 ```{r}
 obj$setModelParameters(fixed_parameters = c("mu", "sigma"), 
-  fixed_values = list(sigma0 = 4))
+  fixed_values = list(beta = c("2" = 0, "1" = 0.6)))
 obj$params_fixed
 ```
 
@@ -127,7 +127,7 @@ obj$params_fixed
 ```{r}
 obj$setModelParameters(fixed_parameters = c("mu", "sigma"), 
   fixed_values = list(), 
-  initial_values = list(beta = c("1"= 0, "2" = 0.8), sigma0 = 4))
+  initial_values = list(beta = c(0, 0.8), sigma0 = 4))
 obj$params_init
 ```
 
@@ -135,10 +135,47 @@ obj$params_init
 
 ```{r}
 obj$setModelParameters(fixed_parameters = c("mu", "sigma"), 
-  fixed_values = list(), 
-  initial_values = list(beta = c(0, 0.6)),
+  fixed_values = list(beta = c("2" = 0, "1" = 0.6)), 
+  initial_values = list()),
   formula_lengths = ~ 0 + SonarBin,
   formula_proportions = list("all" = ~ 0 +))
 obj$params_init
 ```
 
+self = obj
+init_values = 1
+fixed_values = NULL
+default_values = obj$default_parameters$sigma0
+transform = I
+name = "sigma0"
+
+  id <- names(default_values)
+  if(is.null(id)){
+    id <- 1:length(default_values)
+    names(default_values) <- id
+  }
+  self$params_fixed[[name]] <- NULL
+  self$params_init[[name]] <- NULL
+  
+  ## Set fixed values, keep NULL if note present:
+  self$params_fixed[[name]] <- fn_null(transform, x=fixed_values, ...)
+
+  init <- default_values
+  if(is.null(names(init))) names(init) <- 1:length(init)
+
+  if(!is.null(init_values)){
+    if(is.null(names(init_values))){
+      names(init_values) <- 1:length(init_values)
+      if(length(init_values) != length(default_values)) stop("Must name the parameter initial value being passed or initialize all parameter values.")
+    }
+    init[names(init_values)] <- init_values
+  }
+  if(!is.null(fixed_values)){
+    if(is.null(names(fixed_values))){
+      names(fixed_values) <- 1:length(fixed_values)
+      if(length(fixed_values) != length(default_values)) stop("Must name the parameter fixed values being passed or fix all parameter values.")
+    }
+    init <- init[!names(init) %in% names(fixed_values)]
+    if(length(init) == 0) init <- NULL
+  }
+  self$params_init[[name]] <- fn_null(transform, x = init, ...)

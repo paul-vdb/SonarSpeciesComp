@@ -865,27 +865,27 @@ set_model_parameters <- function(self, fixed_parameters = c("mu", "sigma", "prop
   self$data_list$upper_delta_mu <- delta_mu_limits[,2]
 
   ## Set log catchability:
-  extractParams(self, initial_values$qinv, fixed_values$qinv, self$default_parameters$qinv[self$data_info$test_fishery_input], name = "log_qinv", transform = log)  
+  extractParams(self, initial_values[["qinv"]], fixed_values[["qinv"]], self$default_parameters$qinv[self$data_info$test_fishery_input], name = "log_qinv", transform = log)  
   ## Set alpha
   nalpha <- do.call(sum, lapply(self$data_list$X_proportions[self$species_info$species_other], ncol))
   self$default_parameters$alpha <- numeric(nalpha)
-  extractParams(self, initial_values$alpha, fixed_values$alpha, self$default_parameters$alpha, name = "alpha")  
+  extractParams(self, initial_values[["alpha"]], fixed_values[["alpha"]], self$default_parameters$alpha, name = "alpha")  
   ## Set alpha jack chinook
-  self$default_parameters$alpha_jackchinook <- rep(self$default_parameters$alpha_jackchinook[1], ncol(self$data_list$X_proportions[["jackchinook"]]))
+  self$default_parameters[["alpha_jackchinook"]] <- rep(self$default_parameters$alpha_jackchinook[1], ncol(self$data_list$X_proportions[["jackchinook"]]))
   extractParams(self, initial_values$alpha_jackchinook, fixed_values$alpha_jackchinook, self$default_parameters$alpha_jackchinook, name = "alpha_jackchinook")  
   ## Set beta
   nbeta <- ncol(self$data_list$X_length)
   self$default_parameters$beta <- rep(0, nbeta)
-  extractParams(self, initial_values$beta, fixed_values$beta, self$default_parameters$beta, name = "beta")
+  extractParams(self, initial_values[["beta"]], fixed_values[["beta"]], self$default_parameters[["beta"]], name = "beta")
   ## Set mu
-  extractParams(self, initial_values$mu, fixed_values$mu, self$default_parameters$mu[self$species_info$species], name = "mu")  
+  extractParams(self, initial_values[["mu"]], fixed_values[["mu"]], self$default_parameters$mu[self$species_info$species], name = "mu")  
   ## Set sigma
-  extractParams(self, initial_values$sigma, fixed_values$sigma, self$default_parameters$sigma[self$species_info$species], name = "log_sigma", transform = log)  
+  extractParams(self, initial_values[["sigma"]], fixed_values[["sigma"]], self$default_parameters$sigma[self$species_info$species], name = "log_sigma", transform = log)  
   ## Set delta_mu
-  extractParams(self, initial_values$delta_mu, fixed_values$delta_mu, self$default_parameters$delta_mu[self$species_info$species], name = "logit_delta_mu", 
+  extractParams(self, initial_values[["delta_mu"]], fixed_values[["delta_mu"]], self$default_parameters$delta_mu[self$species_info$species], name = "logit_delta_mu", 
                 transform = logitInterval, lower = delta_mu_limits[,1], upper = delta_mu_limits[,2])
   ## Set sigma0
-  extractParams(self, initial_values$sigma0, fixed_values$sigma0, self$default_parameters$sigma0, name = "log_sigma0", transform = log)
+  extractParams(self, initial_values[["sigma0"]], fixed_values[["sigma0"]], self$default_parameters[["sigma0"]], name = "log_sigma0", transform = log)
 
   ## proportion adult chinook:
   self$params_fixed$proportion_adultchinook <- self$default_parameters$proportion_adultchinook[grep("adult",self$species_info$species_chinook, value=TRUE)]
