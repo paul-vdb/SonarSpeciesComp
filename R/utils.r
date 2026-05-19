@@ -140,8 +140,8 @@ ilogitInterval <- function(x, lower, upper){
 #' @return A function, either the jacobian originally passed as fn, or a function that only returns 0.
 #'
 #' @export
-addJacobian = function(fn, includeJacobian){
-  if(!includeJacobian){
+addJacobian <- function(fn, includeJacobian){
+  if(!includeJacobian | !is.function(fn)){
     return(\(...){
     "c" <- ADoverload("c")
     "[<-" <- ADoverload("[<-")
@@ -167,7 +167,7 @@ addJacobian = function(fn, includeJacobian){
 #' @return A function, either the prior originally passed as fn, or a function that only returns 0. 
 #'
 #' @export
-addPrior = function(fn){
+addPrior <- function(fn){
   if(!is.function(fn)){
     return(\(...){
     "c" <- ADoverload("c")
@@ -181,7 +181,8 @@ addPrior = function(fn){
       environment()
     })
     environment(fn) <- env_fn
-    return(fn)
+    fn_sum <- function(x, ...){sum(fn(x, ...))}
+    return(fn_sum)
   }
 }
 
