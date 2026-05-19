@@ -103,6 +103,8 @@ obj$setSpeciesLengths(mu = c("smallresident" = 22, "largeresident" = 38, "jackch
   test_fishery_lengths = mission_2022$testFisheryLengths, ndays = 7)
 ```
 
+Note that within this function we fit a mixture model to the Chinook catch from the test fishery to see if we can set a reasonable proportion of jack Chinook vs adult (or small and large) Chinook.
+
 ### Parameter Setup
 
 The user is able to influence how the species composition model is set up mostly through the `setModelParameters` function. The input includes:
@@ -117,8 +119,8 @@ obj$params_fixed
 2. `fixed_values` - List with names equal to parameters that the user can use to set the actual values to fix. Otherwise, the parameters chosen in `fixed_parameters` will be chosen based on current values held within the model object. Additional individual values in parameters can be held constant here. For example, we could choose to change the small resident size here, and potentially fix measurement error $\sigma_0 = 4$. Note that the term will appear transformed for parameters that are fit on the real scale.
 
 ```{r}
-obj$setModelParameters(fixed_parameters = c("mu", "sigma"), 
-  fixed_values = list(beta = c("2" = 0, "1" = 0.6)))
+obj$setModelParameters(fixed_parameters = c("mu", "sigma"),
+  fixed_values = list(sigma0 = 4))
 obj$params_fixed
 ```
 
@@ -128,54 +130,127 @@ obj$params_fixed
 obj$setModelParameters(fixed_parameters = c("mu", "sigma"), 
   fixed_values = list(), 
   initial_values = list(beta = c(0, 0.8), sigma0 = 4))
-obj$params_init
+obj$params_init$log_sigma0
+obj$params_init$beta
 ```
 
-4. `formula_lengths` - List of what to set the initial values to for the model. Things that are not set will be given default values but it may sometime help to initialize the model to make fitting faster. If we are allowing beam spreading to change by Sonar Bin, then we may initialize `beta = c(0,4,9)` as
+4. `formula_proportions` - List of formulas to fit the proportions of each species to covariates. Choose `list("all" = ~ 0)` to set all proportions constant, excluding Chinook. If multiple days then recommend `"all" ~ 0 + factor(day)`, however we may choose to assume the proportion of jack Chinook remains constant `"jackchinook" = ~ 1`.
 
 ```{r}
 obj$setModelParameters(fixed_parameters = c("mu", "sigma"), 
-  fixed_values = list(beta = c("2" = 0, "1" = 0.6)), 
-  initial_values = list()),
-  formula_lengths = ~ 0 + SonarBin,
-  formula_proportions = list("all" = ~ 0 +))
-obj$params_init
+  initial_values = list(beta = c(0, 0.8), sigma0 = 4),
+  formula_proportions = list("all" = ~ 0 + factor(day), "jackchinook" = ~ 1))
+obj$data_list$alpha_formula
 ```
 
-self = obj
-init_values = 1
-fixed_values = NULL
-default_values = obj$default_parameters$sigma0
-transform = I
-name = "sigma0"
+5. `date` and `ndays` - Option to be able to update the day for analysis here. Just another way to call `setDate`.
 
-  id <- names(default_values)
-  if(is.null(id)){
-    id <- 1:length(default_values)
-    names(default_values) <- id
-  }
-  self$params_fixed[[name]] <- NULL
-  self$params_init[[name]] <- NULL
-  
-  ## Set fixed values, keep NULL if note present:
-  self$params_fixed[[name]] <- fn_null(transform, x=fixed_values, ...)
+6. `species` - Option to change the species here as an alternative to `setSpecies`. 
 
-  init <- default_values
-  if(is.null(names(init))) names(init) <- 1:length(init)
+7. `delta_mu_bounds` - List of formulas to fit the proportions of each species to covariates. Choose `~ 0 + SonarBin` to let it vary by each Sonar Bin.
 
-  if(!is.null(init_values)){
-    if(is.null(names(init_values))){
-      names(init_values) <- 1:length(init_values)
-      if(length(init_values) != length(default_values)) stop("Must name the parameter initial value being passed or initialize all parameter values.")
-    }
-    init[names(init_values)] <- init_values
-  }
-  if(!is.null(fixed_values)){
-    if(is.null(names(fixed_values))){
-      names(fixed_values) <- 1:length(fixed_values)
-      if(length(fixed_values) != length(default_values)) stop("Must name the parameter fixed values being passed or fix all parameter values.")
-    }
-    init <- init[!names(init) %in% names(fixed_values)]
-    if(length(init) == 0) init <- NULL
-  }
-  self$params_init[[name]] <- fn_null(transform, x = init, ...)
+8. `qinv_names` - Choose how the expansion line should vary by species, fishery, and net_type. If we think that all Albion test fishery is the same then we might remove "net_type" from this. If all "vmn" is the same then we might remove "fishery" and keep "net_type".
+
+```{r}
+obj$setModelParameters(qinv_names = c("species"))
+obj$params_init$log_qinv
+
+obj$setModelParameters(qinv_names = c("species", "fishery"))
+obj$params_init$log_qinv
+
+obj$setModelParameters(qinv_names = c("species", "fishery", "net_type"))
+obj$params_init$log_qinv
+```
+
+9. `test_fishery_spp` - Test fishery naming convention. This allows the user to separate adult Chinook and all Chinook between the test fisheries. May also include jack Chinook at Whonnock this way.
+
+```{r}
+obj$setModelParameters(qinv_names = c("species", "fishery", "net_type"),
+  test_fishery_spp = c("sockeye_whonnock", "adultchinook_whonnock", "chinook_albion"))
+obj$data_info$test_fishery_spp
+obj$params_init$log_qinv
+```
+
+### Set Prior/Penalty Distributions
+
+For many of these parameters, we may not want to hold them fixed, but we will want to inform them based on prior knowledge, such as the expansion line. This can be done in a Bayesian framework by passing prior distributions to each parameter. In this case, the parameter estimates are well defined as the posterior mode. However, we may also stay in a Frequentist space and use prior information as a penalty that penalizes the likelihood to stay within the penalized region. The major difference between prior vs. penalty is simply whether or not to include the Jacobian transformation.
+
+Setting up the penalties/priors can be done with the `setPriors`. This takes `priors` - a list of distributions that the user passes as well as `includeJacobian` - logical of whether or not to include the Jacobian. Default is to include no prior/penalties. Note that all prior distributions must be given on the log scale (`log = TRUE`).
+
+```{r}
+obj$setPriors(priors = list(sigma0 = \(x){dnorm(x, 4, 0.5, log = TRUE)},
+  beta = \(x){dnorm(x, c(0,4,9), 0.5, log = TRUE)},
+  qinv = \(x){dnorm(x, c(12000, 6000, 6000, 6000), 1000, log = TRUE)}),
+  includeJacobian = TRUE)
+
+obj$prior_distributions$dlog_sigma0(4) + obj$prior_jacobians$dlog_sigma0(4)
+obj$prior_distributions$dbeta(c(0,4,9))
+obj$prior_distributions$dlog_qinv(c(12000, 6000, 6000, 6000)) + obj$prior_jacobians$dlog_qinv(c(12000, 6000, 6000, 6000))
+```
+
+## Example
+
+Let's put it all together and have a look at what we estimate.
+
+```{r}
+speciesComp <- speciesCompModel$new(
+            species = c("smallresident", "largeresident", "jackchinook", "sockeye", "adultchinook"), 
+            site = "Mission", date = as.Date("2022-07-15"),  ndays = 1)
+
+## Process all the data and set it within the R6 object.
+speciesComp$processData(sonar_counts = mission_2022$sonarCounts, sonar_lengths = mission_2022$sonarLengths, 
+  test_fishery_counts = list(whonnock = mission_2022$whonnock, albion = mission_2022$albion), salmon_passage_table = mission_2022$salmonPassage,
+  include_tangled = TRUE, dropN = 2, feasible_lengths = c(10,120))
+
+## Here you can change things as you play around with the inputs.
+#------------------------------------------------------------------------
+
+## Change the date and number of days to combine within the analysis.
+speciesComp$setDate(date = "2022-08-15", ndays = 3)
+
+## Change the species available.
+speciesComp$setSpecies(species = c("smallresident", "largeresident", "jackchinook", "sockeye", "adultchinook"))
+
+## Set the prior lengths, manually or from test fishery.
+speciesComp$setSpeciesLengths(mu = c("smallresident" = 22, "largeresident" = 38, "jackchinook" = 42),
+                       sigma = c("smallresident" = 2.5, "largeresident" = 3.5),
+                        test_fishery_lengths = mission_2022$testFisheryLengths, ndays = 7)
+
+## Set the model parameters for the model fitting:
+speciesComp$setModelParameters(fixed_parameters = c("mu", "sigma"),
+                                fixed_values = list(), initial_values = list(beta = c(0, 4, 9)),
+                                formula_proportions = list("all" = ~ 0 + factor(day), "jackchinook" = ~ -1 + factor(day)), #
+                                delta_mu_bounds = list(lower = -2.5, upper = 2.5),
+                                formula_lengths = ~ 0 + SonarBin, 
+                                qinv_names = c("species", "net_type"),
+                                test_fishery_spp = c("sockeye_whonnock", "chinook_whonnock", "chinook_albion"))
+
+## How many parameters are in qinv?                                
+## Convenience for now, use it to set prior on qinv.
+n_test <- length(speciesComp$data_info$test_fishery_input)
+## Set the prior distributions to use.
+speciesComp$setPriors(priors = list(N_largeresident = \(x){dnorm(x, mean = 4000, sd = 500, log = TRUE)}, 
+                                    qinv = \(x){dnorm(x, mean = c(12000, 5000, 5000), sd = c(2000, 1000, 1000), log = TRUE)},
+                                    beta = \(x){dnorm(x, mean = c(0, 4, 9), sd = 0.2, log = TRUE)},
+                                    alpha_jackchinook = \(x){dnorm(x, mean = -2.5, sd = 0.1, log = TRUE)},
+                                    delta_mu = \(x){dnorm(x, mean = 0, sd = 0.2, log = TRUE)}),
+                                    includeJacobian = TRUE)
+
+## Model fitting:
+est_pars <- speciesComp$fitModel(control = list(include_test_fishery = TRUE, adjust_lengths = TRUE, test_fishery_weights = 10))
+## Current avialable plots
+speciesComp$plotMix(day = 1) ## Adjusted for beam spreading
+speciesComp$plotMix(day = 2) ## Adjusted for beam spreading
+speciesComp$plotMix(day = 3) ## Adjusted for beam spreading
+speciesComp$plotBeamSpreading() ## Estimated beam spreading
+speciesComp$plotTestFishery() ## Test fishery Pearson Residuals.
+
+## Estimated Parameters:
+speciesComp$params_estimated
+
+## Total salmon estimates:
+speciesComp$params_estimated$N_daily
+
+## Proportion estimates:
+speciesComp$params_estimated$p_daily
+```

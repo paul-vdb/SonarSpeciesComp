@@ -608,6 +608,7 @@ set_model_proportions <- function(self, formula = list()){
 
   ## jack chinook model:
   formula_jc <- extractControls(formula[["jackchinook"]], ~ 1) ## adult chinook or small/large adults will default to the same, minus input.
+  self$data_list$alpha_formula[["jackchinook"]] <- formula_jc
   # if("all" %in% names(formula)) formula_jc <- p_formula
   self$data_list$X_proportions[["jackchinook"]]  <- model.matrix(formula_jc, data = self$data_list$pred_df)
 }
