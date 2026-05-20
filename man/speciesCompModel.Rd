@@ -312,8 +312,7 @@ Define Prior distributions (or penalty functions) for fitting the joint species 
 \describe{
 \item{\code{priors}}{List of prior distributions. Defaults to \code{\(...){0}}.}
 
-\item{\code{includeJacobian}}{Logical of whether or not to include jacobian transformation.
-\item{plotMix}{Plot the fitted mixture model as a histogram. Input: 'day' (default = 1), 'include_proportion_labels' - }}
+\item{\code{includeJacobian}}{Logical of whether or not to include jacobian transformation.}
 }
 \if{html}{\out{</div>}}
 }
@@ -324,15 +323,13 @@ Define Prior distributions (or penalty functions) for fitting the joint species 
 \subsection{Method \code{plotMix()}}{
 Plot the fitted mixture model against the historgram of the length data.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{speciesCompModel$plotMix(day = 1, include_proportion_labels = FALSE, ...)}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{speciesCompModel$plotMix(day = 1, ...)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
 \item{\code{day}}{to plot (day = 1 is \code{est_date}) (default = 1).}
-
-\item{\code{include_proportion_labels}}{Logical of whether to add text with proportions of each species (default = FALSE).}
 
 \item{\code{...}}{Additional plot arguments.}
 }

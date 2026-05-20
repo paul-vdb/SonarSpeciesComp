@@ -12,6 +12,7 @@ histplot(
   ylim = NA,
   xlim = NA,
   xlab = NA,
+  plot = TRUE,
   ...
 )
 }
@@ -29,6 +30,8 @@ histplot(
 \item{xlim}{xlimit to be used.}
 
 \item{xlab}{xlabel to plot with.}
+
+\item{plot}{logical to either plot the histogram or not.}
 
 \item{...}{Additional arguments for \code{barplot} function call.}
 }

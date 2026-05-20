@@ -4,16 +4,16 @@
 \alias{plot_mix}
 \title{Plot weighted histogram along with estimated proportions.}
 \usage{
-plot_mix(self, day = 1, include_proportion_labels = FALSE, ...)
+plot_mix(self, day = 1, ...)
 }
 \arguments{
 \item{self}{R6 speciesCompModel object.}
 
 \item{day}{Day to plot (default = 1). Day 1 is most recent day.}
 
-\item{include_proportion_labels}{Include labels in plot (default = FALSE).}
-
 \item{...}{Additional options to pass to plot function.}
+
+\item{include_proportion_labels}{Include labels in plot (default = FALSE).}
 }
 \value{
 list of range to plot under (\verb{$range}), the binned values (\verb{$lengths}), and histplot \verb{$density}.
