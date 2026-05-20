@@ -429,7 +429,7 @@ process_whonnock_catch <- function(self, test_fishery_counts, tangled = TRUE){
                          within(soak_time <- (full_out-start_out)/2 + (start_in - full_out) + (full_in-start_in)^0.5/2) |>
                          within(effort <- soak_time*net_length/1000)
   
-  out <- test_fishery_counts[,c("TRIP_DTT", "effort", "net_length")]
+  out <- test_fishery_counts[,c("TRIP_DTT", "FE_SET_NO", "effort", "net_length")]
   names(out)[1] <- "Date"
   out$Date <- as.Date(out$Date)
   
@@ -453,7 +453,7 @@ process_whonnock_catch <- function(self, test_fishery_counts, tangled = TRUE){
 
   out <- out |> within(chinook <- adultchinook + jackchinook)
   
-  out <- out |> aggregate(cbind(pink, sockeye, jackchinook, adultchinook, chinook, effort) ~ Date, sum)
+  out <- out |> aggregate(cbind(pink, sockeye, coho, chum, jackchinook, adultchinook, chinook, effort) ~ FE_SET_NO + Date, sum)
 
   out$net_type <- "vmn"
 

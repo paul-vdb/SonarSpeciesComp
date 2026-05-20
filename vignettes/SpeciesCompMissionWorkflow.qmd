@@ -272,13 +272,15 @@ obj$processData(sonar_counts = mission_2025$sonarCounts,
 Now let's pick a challenging day when there are lots of sockeye and pink, such as August 20th. Note that in 2025, small resident were  not recorded.
 
 ```{r}
+spp <- c("largeresident", "jackchinook", "sockeye", "adultchinook")
 results <- list()
-dates <- seq(as.Date("2025-08-10"), as.Date("2025-08-30"), 1)
+dates <- seq(as.Date("2025-08-01"), as.Date("2025-09-10"), 1)
 for( d in seq_along(dates) ){
 obj$setDate(date = dates[d], ndays = 1)
 
+if(dates[d] >= as.Date("2025-08-10")) spp <- c("largeresident", "jackchinook", "pink", "sockeye", "adultchinook")
 ## Change the species available.
-obj$setSpecies(species = c("largeresident", "jackchinook", "pink", "sockeye", "adultchinook"))
+obj$setSpecies(species = spp)
 
 ## Set the prior lengths, manually or from test fishery.
 obj$setSpeciesLengths(mu = c("largeresident" = 38, "jackchinook" = 42, "sockeye" = 57, "pink" = 51),
@@ -306,14 +308,16 @@ est_pars <- obj$fitModel(control = list(include_test_fishery = TRUE, adjust_leng
 results[[d]] <- est_pars
 }
 
-N <- do.call('rbind', lapply(results, FUN = function(x){x$N_daily}))
+N <- do.call('rbind', lapply(results, FUN = function(x){x$N_daily[,c("Date", "sockeye", "chinook")]}))
 plot(N$Date, N$sockeye, type = "l")
-plot(N$Date, N$pink, type = "l")
 plot(N$Date, N$chinook, type = "l")
+N <- do.call('rbind', lapply(results[10:length(results)], FUN = function(x){x$N_daily}))
+plot(N$Date, N$pink, type = "l")
+points(N$Date, N$sockeye, col = 'red')
 
-mu <- do.call('rbind', lapply(results, FUN = function(x){x$mu_adj}))
-plot(dates, mu[,"pink"], type = "l")
-plot(dates, mu[,"sockeye"], type = "l")
+mu <- do.call('rbind', lapply(results[10:length(results)], FUN = function(x){x$mu_adj}))
+plot(dates[-(1:9)], mu[,"pink"], type = "l")
+plot(dates[-(1:9)], mu[,"sockeye"], type = "l")
 
 qinv <- do.call('rbind', lapply(results, FUN = function(x){x$qinv[1]}))
 plot(dates, qinv, type = "l")
