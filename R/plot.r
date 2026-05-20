@@ -82,11 +82,11 @@ plot_mix <- function(self, day = 1, ...){
   if (require("ggplot2", quietly = TRUE)) {
     plot_h <- ggplot(length_df) + 
       geom_histogram(aes(x = L.cm.modadj, y = ..density.., weight = weights), binwidth = 2, alpha = 0.5, colour = "black") +
-      geom_line(data = fx, aes(x = x, y = f, colour = species), size = 1.2) +
+      geom_line(data = fx, aes(x = x, y = f, colour = species), linewidth = 1) +
       theme_bw() +
       scale_colour_manual("Species", labels = speciesLabels(species), values = speciesColours(species)) +
       xlab("Fish Length (cm)") + ylab("Density") + 
-      geom_line(data = fx_all, aes(x = x, y = f), colour = "black", linetype = 2, size = 1.2) +
+      geom_line(data = fx_all, aes(x = x, y = f), colour = "black", linetype = 2, linewidth = 1) +
       ggtitle(paste0("Date: ", dd))
     suppressWarnings(print(plot_h))
     return()
@@ -126,12 +126,23 @@ plot_test_fishery <- function(self){
   E_CPUE <- N/qinv
   
   test_catch <- test_catch |> within(par <- factor(paste(test_catch$species, test_catch$fishery, test_catch$net_type, sep = "_")))
-  plot(as.numeric(test_catch$par), CPUE - E_CPUE, xlab = "", ylab = "CPUE - Nq", pch = 16, xaxt = "n", main = paste0("Test Fishery: ", self$est_date))
-  axis(1, at = sort(unique(as.numeric(test_catch$par))), labels = gsub("_", "\n ", levels(test_catch$par)), tick = TRUE, padj = 0.5)
-  abline(h = 0, col = 'red', lty = 2)
-  for( i in 1:length(self$params_estimated$qinv)){
-    mtext(text=paste0('Expansion - ', names(self$params_estimated$qinv[i]), ": ",  round(self$params_estimated$qinv[i], 2)), 
-      side = 3, adj = 1-0.08, line = i-3, cex = 1)  
+  test_catch$diff <- CPUE - E_CPUE
+
+  if (require("ggplot2", quietly = TRUE)) {
+    ggplot(data = test_catch, aes(x = factor(par), y = diff)) + 
+      geom_point() + 
+      theme_bw() + 
+      ggtitle( paste0("Test Fishery: ", self$est_date) ) +
+      xlab("") + ylab("CPUE - Nq") + 
+      geom_hline(yintercept = 0, col = 'red', linetype = 2)
+  }else {
+    plot(as.numeric(test_catch$par), CPUE - E_CPUE, xlab = "", ylab = "CPUE - Nq", pch = 16, xaxt = "n", main = paste0("Test Fishery: ", self$est_date))
+    axis(1, at = sort(unique(as.numeric(test_catch$par))), labels = gsub("_", "\n ", levels(test_catch$par)), tick = TRUE, padj = 0.5)
+    abline(h = 0, col = 'red', lty = 2)
+    for( i in 1:length(self$params_estimated$qinv)){
+      mtext(text=paste0('Expansion - ', names(self$params_estimated$qinv[i]), ": ",  round(self$params_estimated$qinv[i], 2)), 
+        side = 3, adj = 1-0.08, line = i-3, cex = 1)  
+    }
   }
 }
 
@@ -157,14 +168,28 @@ plot_beam_spreading <- function(self){
   ## Now adjust species lengths:
   mu <- self$params_estimated$mu_adjusted
   spp <- self$species_info$species
-  
-  plot(0, ylim = c(0,100), xlim = c(0, max(Xnew$R.m)), pch = '', ylab = 'Expected Length (cm)', xlab = 'Range (m)', main = paste0("Beam Spreading: ", self$est_date))
-  for( i in seq_along(spp) ){
-    lines(Xnew$R.m, mu[i] + Xnew$adjust, col = speciesColours(spp[i]))
-    abline(h = mu[i], col = speciesColours(spp[i]), lty = 2)
+
+  if (require("ggplot2", quietly = TRUE)) {
+    X2 <- NULL
+    for( i in seq_along(spp) ) 
+      X2 <- rbind(X2, Xnew |> within(species <- spp[i]) |> within(mu <- mu[i] + adjust)) 
+    ggplot(data = X2, aes(x = R.m, y = mu, colour = species)) + 
+      geom_line(linewidth = 1) +
+      ylab('Expected Length (cm)') + 
+      xlab('Range (m)') + 
+      ggtitle(paste0("Beam Spreading: ", self$est_date)) + 
+      theme_bw() +
+      geom_hline(data = data.frame(mu = as.numeric(mu), species = spp), aes(colour = species, yintercept = mu), linetype = 2) +
+      scale_colour_manual("Species", labels = speciesLabels(spp), values = speciesColours(spp))
+  }else{
+    plot(0, ylim = c(0,100), xlim = c(0, max(Xnew$R.m)), pch = '', ylab = 'Expected Length (cm)', xlab = 'Range (m)', main = paste0("Beam Spreading: ", self$est_date))
+    for( i in seq_along(spp) ){
+      lines(Xnew$R.m, mu[i] + Xnew$adjust, col = speciesColours(spp[i]))
+      abline(h = mu[i], col = speciesColours(spp[i]), lty = 2)
+    }
+    legend("topleft", legend = speciesLabels(spp), col = speciesColours(spp), 
+            lty = rep(1, length(spp)), ncol = 2)
   }
-  legend("topleft", legend = speciesLabels(spp), col = speciesColours(spp), 
-          lty = rep(1, length(spp)), ncol = 2)
 }
 
 #' Species labels

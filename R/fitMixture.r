@@ -219,7 +219,7 @@ fit_joint_model <- function(self){
   fit <- runEM(EM, control = self$fit_info)  
   
   if(fit$convergence["converged"] > 0){
-    cat("For date:", self$est_date, "Model did not successfully converge.\n")
+    cat("For date:", paste0(self$est_date), "Model did not successfully converge.\n")
     # cat("Trying to fit a second time.\n")
     # EM(fit$values[-length(fit$values)])
     # fit <- runEM(EM, control = self$fit_info)
