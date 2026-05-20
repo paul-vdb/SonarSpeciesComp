@@ -188,7 +188,7 @@ obj$prior_distributions$dbeta(c(0,4,9))
 obj$prior_distributions$dlog_qinv(c(12000, 6000, 6000, 6000)) + obj$prior_jacobians$dlog_qinv(c(12000, 6000, 6000, 6000))
 ```
 
-## Example
+## Example 2022
 
 Let's put it all together and have a look at what we estimate.
 
@@ -253,4 +253,16 @@ speciesComp$params_estimated$N_daily
 
 ## Proportion estimates:
 speciesComp$params_estimated$p_daily
+```
+
+## Example 2025
+
+```{r}
+obj <- speciesCompModel$new(date = "2025-08-01", site = "Mission")
+
+obj$processData(sonar_counts = mission_2025$sonarCounts, 
+  sonar_lengths = mission_2025$sonarLengths,
+  test_fishery_counts = list(whonnock = mission_2025$whonnock, albion = mission_2025$albion), 
+  salmon_passage_table = mission_2025$salmonPassage, 
+  include_tangled = TRUE, dropN = 2, feasible_lengths = c(10,120))
 ```
