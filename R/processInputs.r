@@ -657,8 +657,16 @@ set_species_lengths <- function(self, mu = NULL, sigma = NULL, proportions_chino
   proportions_chinook_ <- c("jackchinook" = 0.05, "adultchinook" = 0.95,"smalladultchinook" = 0.17, "largeadultchinook" = 0.78)
   proportions_chinook_ <- proportions_chinook_[self$species_info$species_chinook]
   
-  if(!all(names(mu) %in% self$species_info$species)) stop("Provided species mean size 'mu' that is not a current species or is spelled wrong.")
-  if(!all(names(sigma) %in% self$species_info$species)) stop("Provided species standard deviation 'sigma' that is not a current species or is spelled wrong.")
+  if(!all(names(mu) %in% self$species_info$species)){
+    missing <- setdiff(names(mu), self$species_info$species)
+    mu <- mu[names(mu) %in% self$species_info$species]
+    cat("[Warning]  Ignoring user supplied mu values:", missing, "Either missing species or spelling wrong.\n")
+  }
+  if(!all(names(sigma) %in% self$species_info$species)){
+    missing <- setdiff(names(sigma), self$species_info$species)
+    sigma <- sigma[sigma(mu) %in% self$species_info$species]
+    cat("[Warning]  Ignoring user supplied sigma values:", missing, "Either missing species or spelling wrong.\n")
+  }
   
   ## Add in user supplied values:
   mu_[names(mu)] <- mu
