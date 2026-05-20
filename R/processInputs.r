@@ -206,10 +206,9 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
     },
     #' @description Plot the fitted mixture model against the historgram of the length data.
     #' @param day to plot (day = 1 is `est_date`) (default = 1).
-    #' @param include_proportion_labels Logical of whether to add text with proportions of each species (default = FALSE).
     #' @param ... Additional plot arguments.
-    plotMix = function(day = 1, include_proportion_labels = FALSE, ...){
-      plot_mix(self, day = day, include_proportion_labels = include_proportion_labels, ...)
+    plotMix = function(day = 1, ...){
+      plot_mix(self, day = day, ...)
     },
     #' @description Plot Pearson residuals for the test fishery data (CPUE - Nq) against each species, test fishery, and net type.
     plotTestFishery = function(){

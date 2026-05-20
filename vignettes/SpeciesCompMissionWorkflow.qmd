@@ -257,6 +257,8 @@ speciesComp$params_estimated$p_daily
 
 ## Example 2025
 
+Build the model object for the 2025 data.
+
 ```{r}
 obj <- speciesCompModel$new(date = "2025-08-01", site = "Mission")
 
@@ -265,4 +267,50 @@ obj$processData(sonar_counts = mission_2025$sonarCounts,
   test_fishery_counts = list(whonnock = mission_2025$whonnock, albion = mission_2025$albion), 
   salmon_passage_table = mission_2025$salmonPassage, 
   include_tangled = TRUE, dropN = 2, feasible_lengths = c(10,120))
+```
+
+Now let's pick a challenging day when there are lots of sockeye and pink, such as August 20th. Note that in 2025, small resident were  not recorded.
+
+```{r}
+obj$setDate(date = "2025-08-20", ndays = 3)
+
+## Change the species available.
+obj$setSpecies(species = c("largeresident", "jackchinook", "pink", "sockeye", "adultchinook"))
+
+## Set the prior lengths, manually or from test fishery.
+obj$setSpeciesLengths(mu = c("largeresident" = 38, "jackchinook" = 42, "pink" = 51),
+  sigma = c("largeresident" = 3.5, "pink" = 3),
+  test_fishery_lengths = mission_2025$testFisheryLengths, ndays = 7)
+
+## Set the model parameters for the model fitting:
+obj$setModelParameters(fixed_parameters = c("mu", "sigma"),
+  fixed_values = list(), initial_values = list(beta = c(0, 4, 9)),
+  formula_proportions = list("all" = ~ 0 + factor(day), "jackchinook" = ~ 0 + factor(day)), 
+  delta_mu_bounds = list(lower = -2.5, upper = 2.5),
+    formula_lengths = ~ 0 + SonarBin, 
+    qinv_names = c("species", "net_type"),
+  test_fishery_spp = c("sockeye_whonnock", "chinook_whonnock", "chinook_albion"))
+
+obj$setPriors(priors = list(N_largeresident = \(x){dnorm(x, mean = 4000, sd = 500, log = TRUE)}, 
+  qinv = \(x){dnorm(x, mean = c(12000, 5000, 5000), sd = c(2000, 1000, 1000), log = TRUE)},
+  beta = \(x){dnorm(x, mean = c(0, 4, 9), sd = 0.5, log = TRUE)},
+  alpha_jackchinook = \(x){dnorm(x, mean = -2.5, sd = 0.1, log = TRUE)},
+  delta_mu = \(x){dnorm(x, mean = 0, sd = 0.5, log = TRUE)}),
+  includeJacobian = TRUE)
+
+## Model fitting:
+est_pars <- obj$fitModel(control = list(include_test_fishery = TRUE, adjust_lengths = TRUE, test_fishery_weights = 10))
+## Current avialable plots
+obj$plotMix(day = 1) ## Adjusted for beam spreading
+obj$plotBeamSpreading() ## Estimated beam spreading
+obj$plotTestFishery() ## Test fishery Pearson Residuals.
+
+## Estimated Parameters:
+obj$params_estimated
+
+## Total salmon estimates:
+obj$params_estimated$N_daily
+
+## Proportion estimates:
+obj$params_estimated$p_daily
 ```

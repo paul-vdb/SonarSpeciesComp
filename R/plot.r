@@ -7,14 +7,14 @@
 #' @param ylim ylimit to be used.
 #' @param xlim xlimit to be used.
 #' @param xlab xlabel to plot with.
+#' @param plot logical to either plot the histogram or not.
 #' @param ... Additional arguments for `barplot` function call.
-#'
 #' @details Taken from `plotrix` package for the weighted histogram, reworked for specific purposes.
 #'
 #' @return list of range to plot under (`$range`), the binned values (`$lengths`), and histplot `$density`.
 #'
 #' @export
-histplot <- function(x, wgts, range = c(35, 120), delta = 2, ylim = NA, xlim = NA, xlab = NA, ...){
+histplot <- function(x, wgts, range = c(35, 120), delta = 2, ylim = NA, xlim = NA, xlab = NA, plot = TRUE, ...){
     if (missing(x)) 
         stop("Must pass a value to x.")
     if (missing(wgts)) 
@@ -55,7 +55,7 @@ histplot <- function(x, wgts, range = c(35, 120), delta = 2, ylim = NA, xlim = N
 #' @return list of range to plot under (`$range`), the binned values (`$lengths`), and histplot `$density`.
 #'
 #' @export
-plot_mix <- function(self, day = 1, include_proportion_labels = FALSE, ...){
+plot_mix <- function(self, day = 1, ...){
   if(!any(self$est_date %in% self$params_estimated$N_daily$Date)) 
     stop("Must run 'fitModel' before trying to predict species composition for this date.")
 
@@ -71,41 +71,41 @@ plot_mix <- function(self, day = 1, include_proportion_labels = FALSE, ...){
     self$data_list$length_data$L.cm.modadj <- self$data_list$length_data$L.cm.adj
   else 
     self$data_list$length_data$L.cm.modadj <- self$data_list$length_data$L.cm.adj - self$data_list$X_length %*% beta
-  
-  plotinfo <- list()
-  plotinfo$lengths_hist <- NULL
-  plotinfo$lengths_curve <- NULL
 
   length_df <- self$data_list$length_data |> subset(Date == dd)
-  x <- length_df$L.cm.modadj
-  wgts <- length_df$weights
-  p <- self$params_estimated$p_daily |> subset(Date == dd)
-  N <- self$data_list$total_salmon |> subset(Date == dd)
+  xx <- seq(10, 110, 1)
+  species <- self$species_info$species
+  p <- self$params_estimated$p_daily |> subset(Date == dd) |> subset(select=-Date) |> as.numeric()
+  fx <- do.call("rbind", lapply(1:length(species), FUN = function(i){data.frame(x = xx, f = p[i]*dnorm(xx, mu[i], sqrt(sigma[i]^2 + sigma0^2)), species = species[i])}))
+  fx_all <- fx |> aggregate(f~x, sum)
 
-  hplot <- histplot(x, wgts, xlab = "Fish Length (cm)", range = c(10, 110), main = paste(dd, "N =", floor(N$count)), ...)
-  plotinfo$lengths_hist <- rbind(plotinfo$lengths_hist, data.frame(lengths = hplot$lengths, density = hplot$density))
+  if (require("ggplot2", quietly = TRUE)) {
+    plot_h <- ggplot(length_df) + 
+      geom_histogram(aes(x = L.cm.modadj, y = ..density.., weight = weights), binwidth = 2, alpha = 0.5, colour = "black") +
+      geom_line(data = fx, aes(x = x, y = f, colour = species), size = 1.2) +
+      theme_bw() +
+      scale_colour_manual("Species", labels = speciesLabels(species), values = speciesColours(species)) +
+      xlab("Fish Length (cm)") + ylab("Density") + 
+      geom_line(data = fx_all, aes(x = x, y = f), colour = "black", linetype = 2, size = 1.2) +
+      ggtitle(paste0("Date: ", dd))
+    suppressWarnings(print(plot_h))
+    return()
+  } else {
 
-  range <- hplot$range
-  col <- c("blue", "green")
-  xx <- seq(range[1], range[2], by = 0.1)
-  f <- numeric(length(xx))
-  for( i in seq_along(self$species_info$species)){
-    sppi <- self$species_info$species[i]
-    fi <- p[1,i+1]*dnorm(xx, mu[i], sqrt(sigma[i]^2 + sigma0^2))
-    plotinfo$lengths_curve <- rbind(plotinfo$lengths_curve, data.frame(species = sppi, x = xx, f = fi))
-    f <- f + fi
-    lines(xx - range[1], fi, col = speciesColours(sppi), lty = 1, lwd = 2) ## Have to adjust to scale of bar plot
-    if(include_proportion_labels){
-      mtext(paste0(speciesLabels(sppi),  ": ", "prop: ", 
-            round(p[1,sppi], 3), ", mu: ", round(mu[i],1), ", sigma: ", 
-            round(sigma[i],1)), side = 3, adj = 1, line = i-3, col = speciesColours(sppi),
-            cex = 0.75)
+    p <- self$params_estimated$p_daily |> subset(Date == dd)
+    N <- self$data_list$total_salmon |> subset(Date == dd)
+    hplot <- histplot(length_df$L.cm.modadj, length_df$weights, xlab = "Fish Length (cm)", range = c(10, 110), main = paste(dd, "N =", floor(N$count)), ...)
+  
+    range <- hplot$range
+    for( i in seq_along(species)){
+      sppi <- species[i]
+      fxi <-  fx |> subset(species == sppi)
+      lines(fxi$x - range[1], fxi$f, col = speciesColours(sppi), lty = 1, lwd = 2) ## Have to adjust to scale of bar plot
     }
-  }
-  lines(xx-range[1], f, col = "black", lwd = 2, lty = 2)
-  legend("topright", legend = speciesLabels(self$species_info$species), col = speciesColours(self$species_info$species), 
-          lty = rep(1, length(self$species_info$species)), ncol = 2)
-  invisible(plotinfo)
+    lines(fx_all$x-range[1], fx_all$f, col = "black", lwd = 2, lty = 2)
+    legend("topright", legend = speciesLabels(self$species_info$species), col = speciesColours(self$species_info$species), 
+            lty = rep(1, length(self$species_info$species)), ncol = 2)
+  }          
 }
 
 #' Plot Pearson residuals of test fishery model (CPUE - Nq)
