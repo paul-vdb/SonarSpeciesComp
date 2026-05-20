@@ -29,3 +29,8 @@ use_data(mission_2025)
 usethis::use_tidy_description()
 devtools::document()
 devtools::check()
+
+devtools::build_rmd("vignettes/SpeciesCompMethods.qmd")
+devtools::build_rmd("vignettes/SpeciesCompMissionWorkflow.qmd")
+
+tools::buildVignettes(dir = ".", tangle=TRUE)

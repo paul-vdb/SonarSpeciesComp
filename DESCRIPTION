@@ -19,7 +19,8 @@ Suggests:
     knitr,
     quarto,
     ggplot2
-VignetteBuilder: quarto
+VignetteBuilder:
+    quarto
 Depends: 
     R (>= 3.5)
 LazyData: true

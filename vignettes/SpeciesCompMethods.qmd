@@ -1,14 +1,12 @@
 ---
 title: "Technical Model Details"
-author: "Paul van Dam-Bates"
-date: last-modified
-output: rmarkdown::html_vignette
 description: >
   Techincal details for how the species composition model works.
 format: 
   html:
     embed-resources: true
     theme: cosmo
+    html-math-method: mathjax
 vignette: >
   %\VignetteIndexEntry{Technical Model Details}
   %\VignetteEngine{quarto::html}

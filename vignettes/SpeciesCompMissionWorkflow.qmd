@@ -1,16 +1,14 @@
 ---
 title: "Species Composition Model Workflow at Mission"
-author: "Paul van Dam-Bates"
-date: last-modified
-output: rmarkdown::html_vignette
 description: >
   Workflow for estimating species composition at Mission.
 format: 
   html:
     embed-resources: true
     theme: cosmo
+    html-math-method: mathjax
 vignette: >
-  %\VignetteIndexEntry{SpeciesCompMissionWorkflow}
+  %\VignetteIndexEntry{Species Composition Model Workflow at Mission}
   %\VignetteEngine{quarto::html}
   %\VignetteEncoding{UTF-8}
 knitr:
@@ -308,19 +306,19 @@ est_pars <- obj$fitModel(control = list(include_test_fishery = TRUE, adjust_leng
 results[[d]] <- est_pars
 }
 
-N <- do.call('rbind', lapply(results, FUN = function(x){x$N_daily[,c("Date", "sockeye", "chinook")]}))
-plot(N$Date, N$sockeye, type = "l")
-plot(N$Date, N$chinook, type = "l")
-N <- do.call('rbind', lapply(results[10:length(results)], FUN = function(x){x$N_daily}))
-plot(N$Date, N$pink, type = "l")
-points(N$Date, N$sockeye, col = 'red')
+#N <- do.call('rbind', lapply(results, FUN = function(x){x$N_daily[,c("Date", #"sockeye", "chinook")]}))
+#plot(N$Date, N$sockeye, type = "l")
+#plot(N$Date, N$chinook, type = "l")
+#N <- do.call('rbind', lapply(results[10:length(results)], FUN = #function(x){x$N_daily}))
+#plot(N$Date, N$pink, type = "l")
+#lines(N$Date, N$sockeye, col = 'red')
 
-mu <- do.call('rbind', lapply(results[10:length(results)], FUN = function(x){x$mu_adj}))
-plot(dates[-(1:9)], mu[,"pink"], type = "l")
-plot(dates[-(1:9)], mu[,"sockeye"], type = "l")
+#mu <- do.call('rbind', lapply(results[10:length(results)], FUN = #function(x){x$mu_adj}))
+#plot(dates[-(1:9)], mu[,"pink"], type = "l")
+#plot(dates[-(1:9)], mu[,"sockeye"], type = "l")
 
-qinv <- do.call('rbind', lapply(results, FUN = function(x){x$qinv[1]}))
-plot(dates, qinv, type = "l")
+#qinv <- do.call('rbind', lapply(results, FUN = function(x){x$qinv[1]}))
+#plot(dates, qinv, type = "l")
 
 
 # ## Current available plots
