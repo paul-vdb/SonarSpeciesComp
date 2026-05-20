@@ -664,7 +664,7 @@ set_species_lengths <- function(self, mu = NULL, sigma = NULL, proportions_chino
   }
   if(!all(names(sigma) %in% self$species_info$species)){
     missing <- setdiff(names(sigma), self$species_info$species)
-    sigma <- sigma[sigma(mu) %in% self$species_info$species]
+    sigma <- sigma[names(sigma) %in% self$species_info$species]
     cat("[Warning]  Ignoring user supplied sigma values:", missing, "Either missing species or spelling wrong.\n")
   }
   
