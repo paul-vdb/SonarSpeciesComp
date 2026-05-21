@@ -421,3 +421,36 @@ process_minutes <- function(time){
   time <- strsplit(time, ":")
   do.call("c", lapply(time, FUN = function(x){as.numeric(x[1])*60 + as.numeric(x[2]) + as.numeric(x[3])/60}))
 }
+
+#' Join estimated parameters:
+#'
+#' @param pars1 First object to rbind
+#' @param pars2 Second object to rbind
+#'
+#' @return Two objects joined with NA in missing columns.
+#'
+#' @export
+rbind_lazy <- function(pars1 = NULL, pars2 = NULL){
+  par_names1 <- names(pars1)
+  par_names2 <- names(pars2)
+
+  if(identical(par_names1, par_names2)) return(rbind(pars1, pars2))
+
+  if(!is.data.frame(pars1)) pars1 <- pars1 |> as.list() |> as.data.frame()
+  if(!is.data.frame(pars2)) pars2 <- pars2 |> as.list() |> as.data.frame()
+  
+  missing_1 <- setdiff(par_names2, par_names1)
+  if(length(missing_1) > 0) {
+    newcols <- matrix(NA, ncol = length(missing_1), nrow = nrow(pars1))
+    colnames(newcols) <- missing_1
+    pars1 <- cbind(pars1,  newcols)
+  }
+  missing_2 <- setdiff(par_names1, par_names2)
+  if(length(missing_2) > 0) {
+    newcols <- matrix(NA, ncol = length(missing_2), nrow = nrow(pars2))
+    colnames(newcols) <- missing_2
+    pars2 <- cbind(pars2,  newcols)
+  }
+  pars1 <- rbind(pars1, pars2[,names(pars1)])
+  return(pars1)
+}
