@@ -131,12 +131,13 @@ plot_test_fishery <- function(self){
   test_catch$diff <- CPUE - E_CPUE
 
   if (require("ggplot2", quietly = TRUE)) {
-    ggplot(data = test_catch, aes(x = factor(par), y = diff)) + 
+    plot_h <- ggplot(data = test_catch, aes(x = factor(par), y = diff)) + 
       geom_point() + 
       theme_bw() + 
       ggtitle( paste0("Test Fishery: ", self$est_date) ) +
       xlab("") + ylab("CPUE - Nq") + 
       geom_hline(yintercept = 0, col = 'red', linetype = 2)
+      suppressWarnings(print(plot_h))
   }else {
     plot(as.numeric(test_catch$par), CPUE - E_CPUE, xlab = "", ylab = "CPUE - Nq", pch = 16, xaxt = "n", main = paste0("Test Fishery: ", self$est_date))
     axis(1, at = sort(unique(as.numeric(test_catch$par))), labels = gsub("_", "\n ", levels(test_catch$par)), tick = TRUE, padj = 0.5)
@@ -178,7 +179,7 @@ plot_beam_spreading <- function(self){
       X2 <- rbind(X2, Xnew |> within(species <- spp[i]) |> within(mu <- mu[i] + adjust)) 
       X2 <- X2 |> within(species <- factor(species, levels = spp))
 
-    ggplot(data = X2, aes(x = R.m, y = mu, colour = species)) + 
+    plot_h <- ggplot(data = X2, aes(x = R.m, y = mu, colour = species)) + 
       geom_line(linewidth = 1) +
       ylab('Expected Length (cm)') + 
       xlab('Range (m)') + 
@@ -186,6 +187,7 @@ plot_beam_spreading <- function(self){
       theme_bw() +
       geom_hline(data = data.frame(mu = as.numeric(mu), species = spp), aes(colour = species, yintercept = mu), linetype = 2) +
       scale_colour_manual("Species", labels = speciesLabels(spp), values = speciesColours(spp))
+      suppressWarnings(print(plot_h))
   }else{
     plot(0, ylim = c(0,100), xlim = c(0, max(Xnew$R.m)), pch = '', ylab = 'Expected Length (cm)', xlab = 'Range (m)', main = paste0("Beam Spreading: ", self$est_date))
     for( i in seq_along(spp) ){
