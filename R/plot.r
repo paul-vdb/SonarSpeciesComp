@@ -77,9 +77,11 @@ plot_mix <- function(self, day = 1, ...){
   species <- self$species_info$species
   p <- self$params_estimated$p_daily |> subset(Date == dd) |> subset(select=-Date) |> as.numeric()
   fx <- do.call("rbind", lapply(1:length(species), FUN = function(i){data.frame(x = xx, f = p[i]*dnorm(xx, mu[i], sqrt(sigma[i]^2 + sigma0^2)), species = species[i])}))
+  fx <-  fx |> within(species <- factor(species, levels = self$species_info$species))
   fx_all <- fx |> aggregate(f~x, sum)
 
   if (require("ggplot2", quietly = TRUE)) {
+    length_df <- length_df |> within(species <- factor(species, levels = self$species_info$species))
     plot_h <- ggplot(length_df) + 
       geom_histogram(aes(x = L.cm.modadj, y = ..density.., weight = weights), binwidth = 2, alpha = 0.5, colour = "black") +
       geom_line(data = fx, aes(x = x, y = f, colour = species), linewidth = 1) +
@@ -89,7 +91,7 @@ plot_mix <- function(self, day = 1, ...){
       geom_line(data = fx_all, aes(x = x, y = f), colour = "black", linetype = 2, linewidth = 1) +
       ggtitle(paste0("Date: ", dd))
     suppressWarnings(print(plot_h))
-    return()
+    return(invisible(NULL))
   } else {
 
     p <- self$params_estimated$p_daily |> subset(Date == dd)
@@ -105,7 +107,8 @@ plot_mix <- function(self, day = 1, ...){
     lines(fx_all$x-range[1], fx_all$f, col = "black", lwd = 2, lty = 2)
     legend("topright", legend = speciesLabels(self$species_info$species), col = speciesColours(self$species_info$species), 
             lty = rep(1, length(self$species_info$species)), ncol = 2)
-  }          
+  }
+  return(invisible(NULL)) 
 }
 
 #' Plot Pearson residuals of test fishery model (CPUE - Nq)
@@ -144,6 +147,7 @@ plot_test_fishery <- function(self){
         side = 3, adj = 1-0.08, line = i-3, cex = 1)  
     }
   }
+  return(invisible(NULL))
 }
 
 #' Plot Beam Spreading Trend
@@ -173,6 +177,8 @@ plot_beam_spreading <- function(self){
     X2 <- NULL
     for( i in seq_along(spp) ) 
       X2 <- rbind(X2, Xnew |> within(species <- spp[i]) |> within(mu <- mu[i] + adjust)) 
+      X2 <- X2 |> within(species <- factor(species, levels = spp))
+
     ggplot(data = X2, aes(x = R.m, y = mu, colour = species)) + 
       geom_line(linewidth = 1) +
       ylab('Expected Length (cm)') + 
@@ -190,6 +196,7 @@ plot_beam_spreading <- function(self){
     legend("topleft", legend = speciesLabels(spp), col = speciesColours(spp), 
             lty = rep(1, length(spp)), ncol = 2)
   }
+  return(invisible(NULL))
 }
 
 #' Species labels
