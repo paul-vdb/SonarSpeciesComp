@@ -81,7 +81,6 @@ plot_mix <- function(self, day = 1, ...){
   fx_all <- fx |> aggregate(f~x, sum)
 
   if (require("ggplot2", quietly = TRUE)) {
-    length_df <- length_df |> within(species <- factor(species, levels = self$species_info$species))
     plot_h <- ggplot(length_df) + 
       geom_histogram(aes(x = L.cm.modadj, y = ..density.., weight = weights), binwidth = 2, alpha = 0.5, colour = "black") +
       geom_line(data = fx, aes(x = x, y = f, colour = species), linewidth = 1) +
