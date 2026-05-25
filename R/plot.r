@@ -123,7 +123,7 @@ plot_test_fishery <- function(self){
 
   test_catch <- self$data_list$test_fishery_catch
   N <- as.numeric(self$params_estimated$N_daily[cbind(test_catch$day,test_catch$N_index+1)])
-  qinv <- self$params_estimated$qinv[test_catch$q_index]
+  qinv <- exp(X_test_fishery %*% log(self$params_estimated$qinv))[,1] 
   CPUE <- test_catch$catch/test_catch$effort
   E_CPUE <- N/qinv
   
@@ -241,10 +241,8 @@ plot_test_fishery_lengths <- function(self, test_fishery_lengths = NULL, ndays =
   tfl <- tfl |> within(species <- factor(species, levels = c(spp, "chinook")))
 
   if (require("ggplot2", quietly = TRUE)) {
-    spp_label <- c(speciesLabels(spp), "Chinook")
-    names(spp_label) <- c(spp, "chinook")
-    spp_colours <- c(speciesColours(spp), "#27408B")
-    names(spp_colours) <- c(spp, "chinook")
+    spp_label <- speciesLabels(c(spp, "chinook"))
+    spp_colours <- speciesColours(c(spp, "chinook"))
     plot_h <- ggplot(data = tfl, aes(x = FL.cm)) + 
       geom_histogram(aes(y = ..density..), binwidth = 2, alpha = 0.5, colour = "black") +
       facet_wrap(~species, labeller = labeller(.cols = spp_label)) +
@@ -273,7 +271,7 @@ plot_test_fishery_lengths <- function(self, test_fishery_lengths = NULL, ndays =
 #' @export
 speciesLabels <- function(species){
   match <- c("smallresident" = "Small Resident", "largeresident" = "Large Resident", "jackchinook" = "Chinook Jack", 
-             "pink" = "Pink", "sockeye" = "Sockeye", "coho" = "Coho", "chum" = "Chum", "adultchinook" = "Chinook Adult", "smalladultchinook" = "Chinook Small Adult", 
+             "pink" = "Pink", "sockeye" = "Sockeye", "coho" = "Coho", "chum" = "Chum", "chinook" = "Chinook", "adultchinook" = "Chinook Adult", "smalladultchinook" = "Chinook Small Adult", 
              "largeadultchinook" = "Chinook Large Adult")
   as.character(match[species])
 }
@@ -287,6 +285,6 @@ speciesLabels <- function(species){
 #' @export
 speciesColours <- function(species){
   cols <- c("smallresident" = "#FFB100", "largeresident" = "#656837",  "jackchinook" = "#A33CC7", "pink" = "#FF8DA1", 
-    "sockeye" = "#CD0000", "coho" = "#228833", "chum" = "#B8604A", "adultchinook" = "#27408B", "smalladultchinook" = "#27408B", "largeadultchinook" = "#27408B")
+    "sockeye" = "#CD0000", "coho" = "#228833", "chum" = "#B8604A", "chinook" = "#27408B", "adultchinook" = "#27408B", "smalladultchinook" = "#27408B", "largeadultchinook" = "#27408B")
   cols[species]
 }

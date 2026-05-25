@@ -235,9 +235,8 @@ Set the model parameters before fitting with EM algorithm, including which value
   formula_lengths = ~beamWidth.cm,
   date = NULL,
   ndays = NULL,
-  species = NULL,
   delta_mu_bounds = NULL,
-  qinv_names = NULL,
+  expansion_formula = NULL,
   test_fishery_spp = NULL
 )}\if{html}{\out{</div>}}
 }
@@ -259,11 +258,9 @@ Set the model parameters before fitting with EM algorithm, including which value
 
 \item{\code{ndays}}{Number of days to combine (optional).}
 
-\item{\code{species}}{Character vector (optional) of species names for analysis.}
-
 \item{\code{delta_mu_bounds}}{Matrix or vector to schoose how much the mean length of each species can vary. Matrix must have nrows of number of species. Otherwise a vector is length 2 and declares lower and upper for all.}
 
-\item{\code{qinv_names}}{Vector of characters to allow catchability to vary with combinations e.g. \code{c("species", "fishery", "net_type")}.}
+\item{\code{expansion_formula}}{Formula to set the test fishery expansion line relationships (defualt = ~ species:fishery).}
 
 \item{\code{test_fishery_spp}}{Vector of joined species and test fishery names to used e.g. ("sockeye_whonnock", "adultchinook_whonnock", "chinook_albion").}
 }
@@ -276,14 +273,12 @@ Set the model parameters before fitting with EM algorithm, including which value
 \subsection{Method \code{fitModel()}}{
 EM algorithm for fitting the joint species composition model.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{speciesCompModel$fitModel(simulatedData = FALSE, control = list())}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{speciesCompModel$fitModel(control = list())}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
 \if{html}{\out{<div class="arguments">}}
 \describe{
-\item{\code{simulatedData}}{Logical if intending to use simulated data instead of real data (default  FALSE).}
-
 \item{\code{control}}{List containing \code{controlOptimization} arguments as well as '$include_test_fishery' - logical to include or exclude test fishery catch information in the model, '$adjust_lengths' logical include beam spreading adjusment, and '$test_fishery_weights' the model weights for the test fishery.}
 }
 \if{html}{\out{</div>}}

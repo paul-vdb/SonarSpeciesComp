@@ -15,7 +15,6 @@
 #' @export
 fit_joint_model <- function(self){
   species <- self$species_info$species
-  names_tf <- self$data_info$test_fishery_input
   species_N <- self$species_info$species_predict
   
   nspp <- length(species)
@@ -34,7 +33,9 @@ fit_joint_model <- function(self){
   nbeta <- ncol(self$data_list$X_length)
   test_fishery_catch <- self$data_list$test_fishery_catch
   test_fishery_weights <- self$data_info$test_fishery_weights
-  
+  X_test_fishery <- self$data_list$X_test_fishery
+  names_tf <- colnames(X_test_fishery)
+
   pars_init <- self$params_init
   pars_fixed <- self$params_fixed
   
@@ -72,7 +73,7 @@ fit_joint_model <- function(self){
 
     ## 3) Catchability
     log_qinv <- joinPars(pars_outer$log_qinv, pars_fixed$log_qinv, names_tf)  ## *** data input
-    qinv <- exp(log_qinv)  ## Relative to the last species (chinook).
+    qinv <- exp(X_test_fishery %*% log_qinv)[,1]
     
     ## 4) Proportions relationships
     alpha <- joinPars(pars_outer$alpha, pars_fixed$alpha, 1:nalpha)
@@ -120,8 +121,7 @@ fit_joint_model <- function(self){
     if(include_test_fishery){
       ## catch[species] ~ dbinom(N[species], q[species]*effort)
       Ntest <- N_daily[cbind(test_fishery_catch$day, test_fishery_catch$N_index)]
-      ptest <- 1/qinv[test_fishery_catch$q_index]*test_fishery_catch$effort
-      # ll <- ll + test_fishery_weights*sum(dbinomc(x = test_fishery_catch$catch, size = Ntest, prob = ptest, log = TRUE))
+      ptest <- 1/qinv*test_fishery_catch$effort
       ll <- ll + test_fishery_weights*sum(dpois(x = test_fishery_catch$catch, Ntest*ptest, log = TRUE))
     }
     
@@ -149,7 +149,7 @@ fit_joint_model <- function(self){
 
       ## 3) Catchability
       log_qinv <- joinPars(pars_inner$log_qinv, pars_fixed$log_qinv, names_tf) 
-      qinv <- exp(log_qinv)  ## Relative to the last species (chinook).
+      qinv <- exp(X_test_fishery %*% log_qinv)[,1]
       
       ## 4) Proportions relationships
       alpha <- joinPars(pars_inner$alpha, pars_fixed$alpha, 1:nalpha)
@@ -201,7 +201,7 @@ fit_joint_model <- function(self){
       if(include_test_fishery){
         ## catch[species] ~ dbinom(N[species], q[species]*effort)
         Ntest <- N_daily[cbind(test_fishery_catch$day, test_fishery_catch$N_index)]
-        ptest <- 1/qinv[test_fishery_catch$q_index]*test_fishery_catch$effort
+        ptest <- 1/qinv*test_fishery_catch$effort
         # objval <- objval - test_fishery_weights*sum(dbinomc(x = test_fishery_catch$catch, size = Ntest, prob = ptest, log = TRUE))
         objval <- objval - test_fishery_weights*sum(dpois(x = test_fishery_catch$catch, Ntest*ptest, log = TRUE))
       }

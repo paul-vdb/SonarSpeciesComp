@@ -82,7 +82,7 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
         self$data_info$test_fishery_input <- c("sockeye_qualark", "chinook_qualark")
         self$data_info$test_fishery_spp <- c("sockeye_qualark", "chinook_qualark")
       }
-      self$data_info$test_fishery_formula <- c("species", "fishery", "net_type")
+      self$data_info$test_fishery_formula <- ~ 0 + species:fishery
       
       self$test_fishery_catch <- list()
       self$default_parameters <- default_params()
@@ -162,21 +162,29 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
     #' @param date Date (optional) to change analysis date.
     #' @param ndays Number of days to combine (optional).
     #' @param delta_mu_bounds Matrix or vector to schoose how much the mean length of each species can vary. Matrix must have nrows of number of species. Otherwise a vector is length 2 and declares lower and upper for all.
-    #' @param qinv_names Vector of characters to allow catchability to vary with combinations e.g. \code{c("species", "fishery", "net_type")}.
+    #' @param expansion_formula Formula to set the test fishery expansion line relationships (defualt = ~ species:fishery).
     #' @param test_fishery_spp Vector of joined species and test fishery names to used e.g. ("sockeye_whonnock", "adultchinook_whonnock", "chinook_albion").
     setModelParameters = function(fixed_parameters = c("mu", "sigma", "proportion_jackchinook"),
                                   fixed_values = list(), initial_values = list(),
                                   formula_proportions = list(),
                                   formula_lengths = ~ beamWidth.cm,
                                   date = NULL, ndays = NULL, delta_mu_bounds = NULL,
-                                  qinv_names = NULL,
+                                  expansion_formula = NULL,
                                   test_fishery_spp = NULL){
       ## If user wants to update the date and species, they can do that here:
-      if(!is.null(qinv_names)) self$data_info$test_fishery_formula <- qinv_names
+      if(!is.null(expansion_formula)) self$data_info$test_fishery_formula <- expansion_formula
       if(!is.null(test_fishery_spp)) self$data_info$test_fishery_spp <- test_fishery_spp
 
       self$setDate(date, ndays)
       set_daily_data(self)
+
+      ## Set test fishery formula
+      self$data_list$X_test_fishery <- model.matrix(self$data_info$test_fishery_formula, data = self$data_list$test_fishery_catch)
+      ## Remove columns that are all zero (e.g. sockeye has 1 net type).
+      csum <- colSums(abs(self$data_list$X_test_fishery)) 
+      self$data_list$X_test_fishery <- self$data_list$X_test_fishery[, csum > 0]
+      colnames(self$data_list$X_test_fishery) <- gsub("species|net_type|fishery", "", colnames(self$data_list$X_test_fishery))
+      colnames(self$data_list$X_test_fishery) <- gsub(":", "_", colnames(self$data_list$X_test_fishery))
 
       set_length_adjustment(self, formula_lengths)
       set_model_proportions(self, formula_proportions)
@@ -547,19 +555,11 @@ set_daily_data <- function(self){
         catch <- rbind(catch, data.frame(Date = catch_ij$Date, fishery = tf_names[i], net_type = catch_ij$net_type, species = spp_i, catch = as.numeric(catch_ij[,spp_i]), effort = catch_ij$effort))
       }
     }
-    
-    ## par_name defined by user:
-    if(length(self$data_info$test_fishery_formula) > 1){ catch$par_name <- do.call(paste, c(catch[, self$data_info$test_fishery_formula], sep = "_"))
-    }else{catch$par_name <- c(catch[, self$data_info$test_fishery_formula]) }
-    # catch <- catch |> within(par_name <- paste(species, fishery, sep = "_"))
     catch <- catch |> within(day <- as.numeric(factor(Date)))
 
     ## Setup names of test fishery information:
     catch <- catch |> subset(paste(species, fishery, sep = "_") %in% self$data_info$test_fishery_spp)
     self$data_info$test_fishery_input <- unique(catch$par_name)
-    
-    # catch <- catch |> subset(par_name %in% self$data_info$test_fishery_input)
-    catch <- catch |> within(q_index <- sapply(par_name, FUN = function(x) { which(x == self$data_info$test_fishery_input) }) )
     catch <- catch |> within(N_index <- sapply(species, FUN = function(x) { which(x == self$species_info$species_predict)}) )
     self$data_list$test_fishery_catch <- catch
   }
@@ -884,7 +884,9 @@ set_model_parameters <- function(self, fixed_parameters = c("mu", "sigma", "prop
   self$data_list$upper_delta_mu <- delta_mu_limits[,2]
 
   ## Set log catchability:
-  extractParams(self, initial_values[["qinv"]], fixed_values[["qinv"]], self$default_parameters$qinv[self$data_info$test_fishery_input], name = "log_qinv", transform = log)  
+  qdefault <- self$default_parameters$qinv
+  tf_names <- colnames(self$data_list$X_test_fishery)  
+  extractParams(self, initial_values[["qinv"]], fixed_values[["qinv"]], qdefault[tf_names], name = "log_qinv", transform = log)  
   ## Set alpha
   nalpha <- do.call(sum, lapply(self$data_list$X_proportions[self$species_info$species_other], ncol))
   self$default_parameters$alpha <- numeric(nalpha)

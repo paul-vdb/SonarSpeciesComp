@@ -24,7 +24,7 @@ set_species_lengths(
 
 \item{test_fishery_lengths}{Data frame with columns ("FL.cm", "Date", "Species").}
 
-\item{ndays}{Number of days to include for estimating expected mean and variance of lengths for each species.}
+\item{ndays}{Number of days to include for estimating expected mean and variance of lengths for each species (including current date).}
 }
 \value{
 No object returned, appends a intial values to model object \code{self}, \code{self$default_parameters}.
