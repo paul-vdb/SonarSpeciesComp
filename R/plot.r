@@ -214,17 +214,14 @@ plot_test_fishery_lengths <- function(self, test_fishery_lengths = NULL, ndays =
 
   dates_ <- seq(self$est_date - ndays + 1, self$est_date, 1)
 
-  ## Do non-chinook species first:
-  spp_names_mu <- setdiff(grep("resident", self$species_info$species_other, invert = TRUE, value = TRUE), names(mu))
-  spp_names_sigma <- setdiff(grep("resident", self$species_info$species_other, invert = TRUE, value = TRUE), names(sigma))
-  spp_names <- unique(c(spp_names_mu, spp_names_sigma))
-  tfdays <- test_fishery_lengths |> subset(Date %in% dates_)
-
   mu <- self$default_parameters$mu
   sigma <- self$default_parameters$sigma
   pchin <- 1/(1+exp(-self$default_parameters$alpha_jackchinook))
   pchin <- c(pchin, (1-pchin)*self$default_parameters$proportion_adultchinook)
 
+  test_fishery_lengths$Date <- as.Date(test_fishery_lengths$Date)
+  tfdays <- test_fishery_lengths |> subset(Date %in% dates_)
+  
   xx <- seq(30, 120, by = 1)
   f <- numeric(length(xx))
   for( i in seq_along(self$species_info$species_chinook) ){

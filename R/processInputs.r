@@ -151,7 +151,7 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
     #' @param plot Logical to plot the estimated mean and variance set by the function.
     setSpeciesLengths = function(mu = NULL, sigma = NULL, proportion_adultchinook = NULL, test_fishery_lengths = NULL, ndays = 6, plot = FALSE){
       set_species_lengths(self, mu, sigma, proportion_adultchinook, test_fishery_lengths, ndays)
-      self$plotTestFisheryLengths(test_fishery_lengths, ndays)
+      if(plot) plot_test_fishery_lengths(self, test_fishery_lengths = test_fishery_lengths, ndays = ndays)
     },
     #' @description Set the model parameters before fitting with EM algorithm, including which values to fix and which to fit.
     #' @param fixed_parameters Which parameters to hold fixed (default \code{c("mu", "sigma", "proportion_jackchinook")}).
