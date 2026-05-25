@@ -123,7 +123,7 @@ plot_test_fishery <- function(self){
 
   test_catch <- self$data_list$test_fishery_catch
   N <- as.numeric(self$params_estimated$N_daily[cbind(test_catch$day,test_catch$N_index+1)])
-  qinv <- exp(X_test_fishery %*% log(self$params_estimated$qinv))[,1] 
+  qinv <- exp(self$data_list$X_test_fishery %*% log(self$params_estimated$qinv))[,1] 
   CPUE <- test_catch$catch/test_catch$effort
   E_CPUE <- N/qinv
   
