@@ -59,6 +59,7 @@ An R6 base class that is used to step through all the different setups and steps
 \item \href{#method-SpeciesCompModel-plotMix}{\code{speciesCompModel$plotMix()}}
 \item \href{#method-SpeciesCompModel-plotTestFishery}{\code{speciesCompModel$plotTestFishery()}}
 \item \href{#method-SpeciesCompModel-plotBeamSpreading}{\code{speciesCompModel$plotBeamSpreading()}}
+\item \href{#method-SpeciesCompModel-plotTestFisheryLengths}{\code{speciesCompModel$plotTestFisheryLengths()}}
 \item \href{#method-SpeciesCompModel-clone}{\code{speciesCompModel$clone()}}
 }
 }
@@ -197,7 +198,8 @@ Set species length parameter information
   sigma = NULL,
   proportion_adultchinook = NULL,
   test_fishery_lengths = NULL,
-  ndays = 6
+  ndays = 6,
+  plot = FALSE
 )}\if{html}{\out{</div>}}
 }
 
@@ -213,6 +215,8 @@ Set species length parameter information
 \item{\code{test_fishery_lengths}}{Data frame that contains test fishery lengths for use of parameter estimation default values.}
 
 \item{\code{ndays}}{Number of prior days to use from test fishery lengths (default = 6).}
+
+\item{\code{plot}}{Logical to plot the estimated mean and variance set by the function.}
 }
 \if{html}{\out{</div>}}
 }
@@ -355,6 +359,25 @@ Plot estimated beam spreading effects against sonar range.
 \if{html}{\out{<div class="r">}}\preformatted{speciesCompModel$plotBeamSpreading()}\if{html}{\out{</div>}}
 }
 
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-SpeciesCompModel-plotTestFisheryLengths"></a>}}
+\if{latex}{\out{\hypertarget{method-SpeciesCompModel-plotTestFisheryLengths}{}}}
+\subsection{Method \code{plotTestFisheryLengths()}}{
+Plot test fishery lengths against the assumed mean and standard deviation to be used in the model.
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{speciesCompModel$plotTestFisheryLengths(test_fishery_lengths = NULL, ndays = 6)}\if{html}{\out{</div>}}
+}
+
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{test_fishery_lengths}}{Length data frame that contains Date, FL.cm, and Species.}
+
+\item{\code{ndays}}{Number of days to join for plotting test fishery data.}
+}
+\if{html}{\out{</div>}}
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-SpeciesCompModel-clone"></a>}}
