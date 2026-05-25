@@ -131,12 +131,14 @@ plot_test_fishery <- function(self){
   test_catch$diff <- CPUE - E_CPUE
 
   if (require("ggplot2", quietly = TRUE)) {
-    plot_h <- ggplot(data = test_catch, aes(x = factor(par), y = diff)) + 
-      geom_point() + 
+    plot_h <- ggplot(data = test_catch, aes(x = Date, y = diff, colour = fishery, shape = net_type)) + 
+      geom_point(size = 2) + 
       theme_bw() + 
-      ggtitle( paste0("Test Fishery: ", self$est_date) ) +
+      facet_wrap(~species) +
+      # ggtitle( paste0("Test Fishery: ", self$est_date) ) +
       xlab("") + ylab("CPUE - Nq") + 
-      geom_hline(yintercept = 0, col = 'red', linetype = 2)
+      geom_hline(yintercept = 0, col = 'red', linetype = 2)# + 
+      # theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
       suppressWarnings(print(plot_h))
   }else {
     plot(as.numeric(test_catch$par), CPUE - E_CPUE, xlab = "", ylab = "CPUE - Nq", pch = 16, xaxt = "n", main = paste0("Test Fishery: ", self$est_date))

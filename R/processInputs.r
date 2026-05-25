@@ -75,11 +75,9 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
       if(site == "Qualark" & is.null(self$data_info$roll_angle)) self$data_info$roll_angle <- 35
       
       if(site == "Mission"){
-        self$data_info$test_fishery_input <- c("sockeye_whonnock_vmn", "chinook_whonnock_vmn", "chinook_albion_chin", "chinook_albion_vmn")
         self$data_info$test_fishery_spp <- c("sockeye_whonnock", "chinook_whonnock", "chinook_albion")
       }
       if(site == "Qualark"){
-        self$data_info$test_fishery_input <- c("sockeye_qualark", "chinook_qualark")
         self$data_info$test_fishery_spp <- c("sockeye_qualark", "chinook_qualark")
       }
       self$data_info$test_fishery_formula <- ~ 0 + species:fishery
@@ -138,7 +136,8 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
       if(self$data_info$site == "Mission") {
         process_mission_lengths(self, sonar_counts, sonar_lengths, dropN)
         if("whonnock" %in% names(test_fishery_counts)) process_mission_catch(self, test_fishery_counts[["whonnock"]], name = "whonnock", tangled = include_tangled)
-        if("albion" %in% names(test_fishery_counts)) process_albion_catch(self, test_fishery_counts[["albion"]] )        
+        if("albion" %in% names(test_fishery_counts)) process_albion_catch(self, test_fishery_counts[["albion"]] )
+        if("brownsvillebar" %in% names(test_fishery_counts)) process_mission_catch(self, test_fishery_counts[["brownsvillebar"]], name = "brownsvillebar", tangled = include_tangled)        
         if(!is.null(salmon_passage_table)) process_mission_salmon_passage(self, salmon_passage_table)
       }
     },
@@ -238,16 +237,6 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
 default_params <- function(){
   default_parameters <- list()
   ## Expansion Line Albion: 3049 (2020 Brittany Jenewein)
-  default_parameters$qinv <- c("pink_whonnock" = 35000, "sockeye_whonnock" = 12000, "jackchinook_whonnock" = 20000, "adultchinook_whonnock" = 3000,
-                               "pink_whonnock_vmn" = 35000, "sockeye_whonnock_vmn" = 12000, "jackchinook_whonnock_vmn" = 20000, "adultchinook_whonnock_vmn" = 3000,   
-                              "chinook_whonnock" = 3000, "chinook_whonnock_vmn" = 3000, 
-                              "chinook_albion_vmn" = 3049, "chinook_albion_chin" = 6049, "chinook_albion_chum" = 3049,                              
-                              "chinook" = 3049, "chinook_albion" = 3049, "chinook_vmn" = 3049, "chinook_chin" = 3049, "chinook_chum" = 3049,
-                              "sockeye" = 12000, "sockeye_vmn" = 12000, "pink" = 35000, "pink_vmn" = 35000,
-                              "pink_qualark" = 10000, "sockeye_qualark" = 5000, "jackchinook_qualark" = 20000,
-                              "adultchinook_qualark" = 5000, "chinook_qualark" = 6000, "coho_albion" = 2548, "chum_albion" = 3201, 
-                              "coho_albion_vmn" = 2548, "coho_albion_chin" = 2548, "coho_albion_chum" = 2548,
-                              "chum_albion_vmn" = 3201, "chum_albion_chin" = 3201, "chum_albion_chum" = 3201)
   default_parameters$alpha <- c(0,0,0,0)
   default_parameters$alpha_jackchinook <- 0
   default_parameters$beta <- c(0, 0)
@@ -257,6 +246,22 @@ default_params <- function(){
   default_parameters$delta_mu <- c("smallresident" = 0, "largeresident" = 0, "pink" = 0, "sockeye" = 0, "coho" = 0, "chum" = 0, "jackchinook" = 0, "smalladultchinook" = 0, "largeadultchinook" = 0, "adultchinook" = 0)
   default_parameters$proportion_adultchinook <- c("smalladultchinook" = 0.2, "largeadultchinook" = 0.8, "adultchinook" = 1)
   default_parameters
+}
+
+#' @export
+set_default_expansion <- function(tfnames){
+
+  init <- numeric(length(tfnames))
+  names(init) <- tfnames
+  init[grep("sockeye", tfnames)] <- 10000
+  init[grep("chinook", tfnames)] <- 5000
+  init[grep("adultchinook", tfnames)] <- 4500
+  init[grep("jackchinook", tfnames)] <- 15000
+  init[grep("coho", tfnames)] <- 2548
+  init[grep("chum", tfnames)] <- 3201
+  init[grep("pink", tfnames)] <- 20000
+
+  init
 }
 
 #' @export
@@ -559,7 +564,6 @@ set_daily_data <- function(self){
 
     ## Setup names of test fishery information:
     catch <- catch |> subset(paste(species, fishery, sep = "_") %in% self$data_info$test_fishery_spp)
-    self$data_info$test_fishery_input <- unique(catch$par_name)
     catch <- catch |> within(N_index <- sapply(species, FUN = function(x) { which(x == self$species_info$species_predict)}) )
     self$data_list$test_fishery_catch <- catch
   }
@@ -884,9 +888,9 @@ set_model_parameters <- function(self, fixed_parameters = c("mu", "sigma", "prop
   self$data_list$upper_delta_mu <- delta_mu_limits[,2]
 
   ## Set log catchability:
-  qdefault <- self$default_parameters$qinv
-  tf_names <- colnames(self$data_list$X_test_fishery)  
-  extractParams(self, initial_values[["qinv"]], fixed_values[["qinv"]], qdefault[tf_names], name = "log_qinv", transform = log)  
+  tf_names <- colnames(self$data_list$X_test_fishery)
+  qdefault <- set_default_expansion(tf_names)
+  extractParams(self, initial_values[["qinv"]], fixed_values[["qinv"]], qdefault, name = "log_qinv", transform = log)  
   ## Set alpha
   nalpha <- do.call(sum, lapply(self$data_list$X_proportions[self$species_info$species_other], ncol))
   self$default_parameters$alpha <- numeric(nalpha)
