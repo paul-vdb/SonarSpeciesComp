@@ -137,7 +137,7 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
       }
       if(self$data_info$site == "Mission") {
         process_mission_lengths(self, sonar_counts, sonar_lengths, dropN)
-        if("whonnock" %in% names(test_fishery_counts)) process_whonnock_catch(self, test_fishery_counts[["whonnock"]], tangled = include_tangled)
+        if("whonnock" %in% names(test_fishery_counts)) process_mission_catch(self, test_fishery_counts[["whonnock"]], name = "whonnock", tangled = include_tangled)
         if("albion" %in% names(test_fishery_counts)) process_albion_catch(self, test_fishery_counts[["albion"]] )        
         if(!is.null(salmon_passage_table)) process_mission_salmon_passage(self, salmon_passage_table)
       }
@@ -161,7 +161,6 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
     #' @param formula_lengths Formula for how to deal with beam spreading (default = \code{~beamWidth.cm}, 
     #' @param date Date (optional) to change analysis date.
     #' @param ndays Number of days to combine (optional).
-    #' @param species Character vector (optional) of species names for analysis.
     #' @param delta_mu_bounds Matrix or vector to schoose how much the mean length of each species can vary. Matrix must have nrows of number of species. Otherwise a vector is length 2 and declares lower and upper for all.
     #' @param qinv_names Vector of characters to allow catchability to vary with combinations e.g. \code{c("species", "fishery", "net_type")}.
     #' @param test_fishery_spp Vector of joined species and test fishery names to used e.g. ("sockeye_whonnock", "adultchinook_whonnock", "chinook_albion").
@@ -169,7 +168,7 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
                                   fixed_values = list(), initial_values = list(),
                                   formula_proportions = list(),
                                   formula_lengths = ~ beamWidth.cm,
-                                  date = NULL, ndays = NULL, species = NULL, delta_mu_bounds = NULL,
+                                  date = NULL, ndays = NULL, delta_mu_bounds = NULL,
                                   qinv_names = NULL,
                                   test_fishery_spp = NULL){
       ## If user wants to update the date and species, they can do that here:
@@ -177,7 +176,6 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
       if(!is.null(test_fishery_spp)) self$data_info$test_fishery_spp <- test_fishery_spp
 
       self$setDate(date, ndays)
-      self$setSpecies(species)
       set_daily_data(self)
 
       set_length_adjustment(self, formula_lengths)
@@ -185,10 +183,9 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
       set_model_parameters(self, fixed_parameters, fixed_values, initial_values, delta_mu_bounds)      
     },
     #' @description EM algorithm for fitting the joint species composition model.
-    #' @param simulatedData Logical if intending to use simulated data instead of real data (default  FALSE).
     #' @param control List containing \code{controlOptimization} arguments as well as '$include_test_fishery' - logical to include or exclude test fishery catch information in the model, '$adjust_lengths' logical include beam spreading adjusment, and '$test_fishery_weights' the model weights for the test fishery.
     #' @return List of parameter estimates, which is also stored in the \code{params_estimated} field of the R6 object.
-    fitModel = function(simulatedData = FALSE, control = list()){
+    fitModel = function(control = list()){
       self$controlOptimization(control)
       self$fit_info$include_test_fishery <- extractControls(control$include_test_fishery, self$fit_info$include_test_fishery)
       self$data_info$test_fishery_weights <- extractControls(control$test_fishery_weights, self$data_info$test_fishery_weights)
@@ -410,19 +407,20 @@ process_mission_lengths <- function(self, sonar_counts, sonar_lengths, dropN = 2
 }
 
 
-#' Process Whonnock Catch
+#' Process PSC Catch
 #'
 #' @param self R6 speciesCompModel Object.
 #' @param test_fishery_counts Data frame in standard format for Whonnock catch.
+#' @param name Test fishery name (default = "whonnock").
 #' @param tangle Logical whether to include or exclude tangled counts.
 #'
 #' @details input data frame should have columns start_out, full_out, start_in, full_in along with TRIP_DTT, and net_length. The other 
 #' required columns are generally `Sockeye Adult Gilled` and `Sockeye Adult Tangled`.
 #'
-#' @return No object returned, appends test fishery catch to \code{self$test_fishery_catch[["whonnock"]]}
+#' @return No object returned, appends test fishery catch to \code{self$test_fishery_catch[[name]]}
 #'
 #' @export
-process_whonnock_catch <- function(self, test_fishery_counts, tangled = TRUE){
+process_mission_catch <- function(self, test_fishery_counts, name = "whonnock", tangled = TRUE){
 
   ## Process times:
   test_fishery_counts <- test_fishery_counts |> 
@@ -464,8 +462,10 @@ process_whonnock_catch <- function(self, test_fishery_counts, tangled = TRUE){
   out <- out |> aggregate(cbind(pink, sockeye, coho, chum, jackchinook, adultchinook, chinook, effort) ~ FE_SET_NO + Date, sum)
 
   out$net_type <- "vmn"
+  
+  if(name == "brownsvillebar") out$Date <- out$Date + 1 ## Add a day to the dataset to match it roughly to Mission.
 
-  self$test_fishery_catch[["whonnock"]] <- out
+  self$test_fishery_catch[[name]] <- out
 }
 
 #' Process Mission Salmon Passage
@@ -647,7 +647,7 @@ set_length_adjustment <- function(self, formula = NULL){
 #' @param sigma Named vector of lengths to assume in the model e.g. \code{c("largeresident" = 2.5)}.
 #' @param proportions_chinook Proportion of Chinook that are different age/size classes ("jackchinook", "adultchinook").
 #' @param test_fishery_lengths Data frame with columns ("FL.cm", "Date", "Species").
-#' @param ndays Number of days to include for estimating expected mean and variance of lengths for each species.
+#' @param ndays Number of days to include for estimating expected mean and variance of lengths for each species (including current date).
 #'
 #' @details If a mu value is not provided and test_fishery_lengths are, then we will try and estimate mean and variance based on the 
 #' number of days provided (default = 7). If not enough catches are available, or test fishery data is not provided, then default values are used.
