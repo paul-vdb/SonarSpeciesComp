@@ -86,7 +86,7 @@ plot_mix <- function(self, day = 1, ...){
       geom_line(data = fx, aes(x = x, y = f, colour = species), linewidth = 1) +
       theme_bw() +
       scale_colour_manual("Species", labels = speciesLabels(species), values = speciesColours(species)) +
-      xlab("Fish Length (cm)") + ylab("Density") + 
+      xlab("Fish Length (cm) - Adjusted for Beam Spreading") + ylab("Density") + 
       geom_line(data = fx_all, aes(x = x, y = f), colour = "black", linetype = 2, linewidth = 1) +
       ggtitle(paste0("Date: ", dd))
     suppressWarnings(print(plot_h))
@@ -95,7 +95,7 @@ plot_mix <- function(self, day = 1, ...){
 
     p <- self$params_estimated$p_daily |> subset(Date == dd)
     N <- self$data_list$total_salmon |> subset(Date == dd)
-    hplot <- histplot(length_df$L.cm.modadj, length_df$weights, xlab = "Fish Length (cm)", range = c(10, 110), main = paste(dd, "N =", floor(N$count)), ...)
+    hplot <- histplot(length_df$L.cm.modadj, length_df$weights, xlab = "Fish Length (cm) - Adjusted for Beam Spreading", range = c(10, 110), main = paste(dd, "N =", floor(N$count)), ...)
   
     range <- hplot$range
     for( i in seq_along(species)){
@@ -199,6 +199,71 @@ plot_beam_spreading <- function(self){
   }
   return(invisible(NULL))
 }
+
+#' Plot Test Fishery Lengths
+#' 
+#' @param self R6 speciesCompModel object.
+#' @param test_fishery_lengths Data frame of test fishery lengths with Date, FL.cm, and Species.
+#' @param ndays Number of days to combine for test fishing length data.
+#'
+#' @details Plot histogram and density plots assumed for the species lengths data.
+#'
+#' @export
+plot_test_fishery_lengths <- function(self, test_fishery_lengths = NULL, ndays = 6){
+  if(is.null(test_fishery_lengths)) stop("Plotting test fishery data requires test fishery length data.")
+
+  dates_ <- seq(self$est_date - ndays + 1, self$est_date, 1)
+
+  ## Do non-chinook species first:
+  spp_names_mu <- setdiff(grep("resident", self$species_info$species_other, invert = TRUE, value = TRUE), names(mu))
+  spp_names_sigma <- setdiff(grep("resident", self$species_info$species_other, invert = TRUE, value = TRUE), names(sigma))
+  spp_names <- unique(c(spp_names_mu, spp_names_sigma))
+  tfdays <- test_fishery_lengths |> subset(Date %in% dates_)
+
+  mu <- self$default_parameters$mu
+  sigma <- self$default_parameters$sigma
+  pchin <- 1/(1+exp(-self$default_parameters$alpha_jackchinook))
+  pchin <- c(pchin, (1-pchin)*self$default_parameters$proportion_adultchinook)
+
+  xx <- seq(30, 120, by = 1)
+  f <- numeric(length(xx))
+  for( i in seq_along(self$species_info$species_chinook) ){
+    f <- f + pchin[i]*dnorm(xx, mu[self$species_info$chinook_indx[i]], sigma[self$species_info$chinook_indx[i]])
+  }
+  curve <- data.frame(x = xx, f = f, species = "chinook")
+  tfl <- tfdays |> subset(grepl("chinook", tolower(Species)) & !is.na(FL.cm))
+
+  f <- numeric(length(xx))
+  spp <- grep("resident", self$species_info$species_other, invert = TRUE, value = TRUE)
+  for( i in seq_along(spp) ){
+    f <- f + dnorm(xx, mu[self$species_info$chinook_indx[i]], sigma[self$species_info$chinook_indx[i]])
+    curve <- rbind(curve, data.frame( x = xx, f = dnorm(xx, mu[spp[i]], sigma[spp[i]]), species = spp[i]) )
+    tfl <- rbind(tfl, tfdays |> subset(grepl(spp[i], tolower(Species)) & !is.na(FL.cm)) )
+  }
+  tfl <- tfl |> within(species <- tolower(Species))
+  tfl <- tfl |> within(species <- factor(species, levels = c(spp, "chinook")))
+
+  if (require("ggplot2", quietly = TRUE)) {
+    spp_label <- c(speciesLabels(spp), "Chinook")
+    names(spp_label) <- c(spp, "chinook")
+    spp_colours <- c(speciesColours(spp), "#27408B")
+    names(spp_colours) <- c(spp, "chinook")
+    plot_h <- ggplot(data = tfl, aes(x = FL.cm)) + 
+      geom_histogram(aes(y = ..density..), binwidth = 2, alpha = 0.5, colour = "black") +
+      facet_wrap(~species, labeller = labeller(.cols = spp_label)) +
+      ylab("Density") + 
+      xlab("Test Fishery Length (cm)") + 
+      theme_bw() +
+      geom_line(data = curve, aes(colour = species, x = x, y = f), linetype = 1, linewidth = 1) +
+      scale_colour_manual("Species", labels = spp_label, values = spp_colours) +
+      ggtitle(paste(range(dates_), collapse = " to "))
+      suppressWarnings(print(plot_h))
+  }else{
+    cat("[Warning]  Plots without ggplot are not yet implemented for this function.")
+  }
+  return(invisible(NULL))
+}
+
 
 #' Species labels
 #'

@@ -148,8 +148,10 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
     #' @param proportion_adultchinook Named vector that sets default proportions of Chinook e.g. \code{c("jackchinook" = 0.05, "adultchinook" = 0.95)}.
     #' @param test_fishery_lengths Data frame that contains test fishery lengths for use of parameter estimation default values.
     #' @param ndays Number of prior days to use from test fishery lengths (default = 6).
-    setSpeciesLengths = function(mu = NULL, sigma = NULL, proportion_adultchinook = NULL, test_fishery_lengths = NULL, ndays = 6){
+    #' @param plot Logical to plot the estimated mean and variance set by the function.
+    setSpeciesLengths = function(mu = NULL, sigma = NULL, proportion_adultchinook = NULL, test_fishery_lengths = NULL, ndays = 6, plot = FALSE){
       set_species_lengths(self, mu, sigma, proportion_adultchinook, test_fishery_lengths, ndays)
+      self$plotTestFisheryLengths(test_fishery_lengths, ndays)
     },
     #' @description Set the model parameters before fitting with EM algorithm, including which values to fix and which to fit.
     #' @param fixed_parameters Which parameters to hold fixed (default \code{c("mu", "sigma", "proportion_jackchinook")}).
@@ -217,6 +219,12 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
     #' @description Plot estimated beam spreading effects against sonar range.
     plotBeamSpreading = function(){
       plot_beam_spreading(self)
+    },
+    #' @description Plot test fishery lengths against the assumed mean and standard deviation to be used in the model.
+    #' @param test_fishery_lengths Length data frame that contains Date, FL.cm, and Species.
+    #' @param ndays Number of days to join for plotting test fishery data.
+    plotTestFisheryLengths = function(test_fishery_lengths = NULL, ndays = 6){
+      plot_test_fishery_lengths(self, test_fishery_lengths = test_fishery_lengths, ndays = ndays)
     }
   )
 )
@@ -713,7 +721,7 @@ set_species_lengths <- function(self, mu = NULL, sigma = NULL, proportions_chino
     nchinook <- self$species_info$nchinook
     mu_chin <- self$default_parameters$mu[chinook_names]
     sigma_chin <- self$default_parameters$sigma[chinook_names]
-    
+
     chinook_list <- fitChinookLengths(x, chinook_names, mu_chin, sigma_chin, proportions_chin = proportions_chinook_, 
       mu_fixed = mu, sigma_fixed = sigma)
     mu_[chinook_names] <- chinook_list$mu
@@ -768,6 +776,8 @@ fitChinookLengths <- function(x, chinook_names, mu_chin, sigma_chin, proportions
     
     mu_fixed <- mu_fixed[grep("chinook", names(mu_fixed), value = TRUE)]
     sigma_fixed <- sigma_fixed[grep("chinook", names(sigma_fixed), value = TRUE)]
+    mu_chin[names(mu_fixed)] <- mu_fixed
+    sigma_chin[names(sigma_fixed)] <- sigma_fixed
     
     if(length(sigma_fixed) == 0) sigma_fixed <- NULL
     if(length(mu_fixed) == 0) mu_fixed <- NULL

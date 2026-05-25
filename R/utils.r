@@ -12,14 +12,18 @@ joinPars <- function(est = NULL, fixed = NULL, species){
   "c" <- ADoverload("c")
   "[<-" <- ADoverload("[<-")
 
-  if(is.null(est) & !is.null(fixed)) return(fixed)
+  if(is.null(est) & !is.null(fixed)){
+    if(RTMB:::ad_context()) return(as.numeric(fixed))
+    return(fixed)
+  }
   nspp <- length(species)
   v <- numeric(nspp)
   idx <- which(species %in% names(fixed))
-  if(length(idx) > 0) v[idx] <- fixed
+  if(length(idx) > 0) v[idx] <- as.numeric(fixed)
   idy <- which(!species %in% names(fixed))
   if(length(idy) > 0) v[idy[1:length(est)]] <- est
-  if(!RTMB:::ad_context()) names(v) <- species[1:length(v)]
+  if(RTMB:::ad_context()) return(v)
+  names(v) <- species[1:length(v)]
   return(v)
 }
 
