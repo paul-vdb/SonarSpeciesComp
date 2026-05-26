@@ -244,10 +244,11 @@ plot_test_fishery_lengths <- function(self, test_fishery_lengths = NULL, ndays =
 
   if (require("ggplot2", quietly = TRUE)) {
     spp_label <- speciesLabels(c(spp, "chinook"))
+    names(spp_label) <- c(spp, "chinook")
     spp_colours <- speciesColours(c(spp, "chinook"))
     plot_h <- ggplot(data = tfl, aes(x = FL.cm)) + 
       geom_histogram(aes(y = ..density..), binwidth = 2, alpha = 0.5, colour = "black") +
-      facet_wrap(~species, labeller = labeller(.cols = spp_label)) +
+      facet_wrap(~species, labeller = labeller(.cols = spp_label), scale = "free_y") +
       ylab("Density") + 
       xlab("Test Fishery Length (cm)") + 
       theme_bw() +

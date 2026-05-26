@@ -554,6 +554,7 @@ set_daily_data <- function(self){
       catch_i <- self$test_fishery_catch[[i]] |> 
                                     subset(as.Date(Date) %in% dates_) |> 
                                     subset(select = cols_i)
+      if(nrow(catch_i) == 0) next;
       spp_i <- spp_tf[spp_tf %in% names(catch_i)]
       for( j in 1:nrow(catch_i) ){
         catch_ij <- catch_i[j,]
@@ -673,12 +674,12 @@ set_species_lengths <- function(self, mu = NULL, sigma = NULL, proportions_chino
   if(!all(names(mu) %in% self$species_info$species)){
     missing <- setdiff(names(mu), self$species_info$species)
     mu <- mu[names(mu) %in% self$species_info$species]
-    cat("[Warning]  Ignoring user supplied mu values:", missing, "Either missing species or spelling wrong.\n")
+    cat("[Warning]  Ignoring user supplied mu values:", missing, ". Either missing species or spelling wrong.\n")
   }
   if(!all(names(sigma) %in% self$species_info$species)){
     missing <- setdiff(names(sigma), self$species_info$species)
     sigma <- sigma[names(sigma) %in% self$species_info$species]
-    cat("[Warning]  Ignoring user supplied sigma values:", missing, "Either missing species or spelling wrong.\n")
+    cat("[Warning]  Ignoring user supplied sigma values:", missing, ". Either missing species or spelling wrong.\n")
   }
   
   ## Add in user supplied values:
