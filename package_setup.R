@@ -23,8 +23,8 @@ use_build_ignore(c("package_setup.R", "example_data"))
 use_vignette("SpeciesCompMethods.qmd", "Technical Model Details")
 
 load("data/Mission2025.Rdata")
-use_data(mission_2022)
-use_data(mission_2025)
+usethis::use_data(mission_2022)
+usethis::use_data(mission_2025)
 
 usethis::use_tidy_description()
 devtools::document()

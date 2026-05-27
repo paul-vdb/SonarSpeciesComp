@@ -13,6 +13,7 @@ A list:
 \item{sonarLengths}{Measured sonar lengths data frame.}
 \item{albion}{Albion test fishery catch data.}
 \item{whonnock}{Whonnock test fishery catch data.}
+\item{brownsvillebar}{Brownesville Bar test fishery catch data.}
 \item{salmonPassage}{Daily salmon passage estimate, which includes large resident.}
 \item{testFisheryLength}{Test fishery length data.}
 }
