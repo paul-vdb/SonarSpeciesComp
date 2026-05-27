@@ -10,7 +10,8 @@ set_species_lengths(
   sigma = NULL,
   proportions_chinook = NULL,
   test_fishery_lengths = NULL,
-  ndays = 7
+  ndays = 7,
+  verbose = FALSE
 )
 }
 \arguments{

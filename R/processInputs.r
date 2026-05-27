@@ -148,8 +148,9 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
     #' @param test_fishery_lengths Data frame that contains test fishery lengths for use of parameter estimation default values.
     #' @param ndays Number of prior days to use from test fishery lengths (default = 6).
     #' @param plot Logical to plot the estimated mean and variance set by the function.
-    setSpeciesLengths = function(mu = NULL, sigma = NULL, proportion_adultchinook = NULL, test_fishery_lengths = NULL, ndays = 6, plot = FALSE){
-      set_species_lengths(self, mu, sigma, proportion_adultchinook, test_fishery_lengths, ndays)
+    #' @param verbose Logical to print warning messages or not.
+    setSpeciesLengths = function(mu = NULL, sigma = NULL, proportion_adultchinook = NULL, test_fishery_lengths = NULL, ndays = 6, plot = FALSE, verbose = FALSE){
+      set_species_lengths(self, mu, sigma, proportion_adultchinook, test_fishery_lengths, ndays, verbose = verbose)
       if(plot) plot_test_fishery_lengths(self, test_fishery_lengths = test_fishery_lengths, ndays = ndays)
     },
     #' @description Set the model parameters before fitting with EM algorithm, including which values to fix and which to fit.
@@ -661,7 +662,7 @@ set_length_adjustment <- function(self, formula = NULL){
 #' @return No object returned, appends a intial values to model object `self`, \code{self$default_parameters}.
 #'
 #' @export
-set_species_lengths <- function(self, mu = NULL, sigma = NULL, proportions_chinook = NULL, test_fishery_lengths = NULL, ndays = 7){
+set_species_lengths <- function(self, mu = NULL, sigma = NULL, proportions_chinook = NULL, test_fishery_lengths = NULL, ndays = 7, verbose = FALSE){
 
   dates_ <- seq(self$est_date - ndays + 1, self$est_date, 1)
 
@@ -674,12 +675,12 @@ set_species_lengths <- function(self, mu = NULL, sigma = NULL, proportions_chino
   if(!all(names(mu) %in% self$species_info$species)){
     missing <- setdiff(names(mu), self$species_info$species)
     mu <- mu[names(mu) %in% self$species_info$species]
-    cat("[Warning]  Ignoring user supplied mu values:", missing, ". Either missing species or spelling wrong.\n")
+    if(verbose) cat("[Warning]  Ignoring user supplied mu values:", missing, ". Either missing species or spelling wrong.\n")
   }
   if(!all(names(sigma) %in% self$species_info$species)){
     missing <- setdiff(names(sigma), self$species_info$species)
     sigma <- sigma[names(sigma) %in% self$species_info$species]
-    cat("[Warning]  Ignoring user supplied sigma values:", missing, ". Either missing species or spelling wrong.\n")
+    if(verbose) cat("[Warning]  Ignoring user supplied sigma values:", missing, ". Either missing species or spelling wrong.\n")
   }
   
   ## Add in user supplied values:
@@ -707,7 +708,7 @@ set_species_lengths <- function(self, mu = NULL, sigma = NULL, proportions_chino
       tfl <- tfdays |> subset(grepl(spp_names[i], tolower(Species)) & !is.na(FL.cm))
       x <- tfl$FL.cm
       if(length(x) < 5) {
-        cat("[Warning]  Unable to estimate", spp_names[i] , "lengths from the test fishery data. Using default mean and variance.\n")        
+        if(verbose) cat("[Warning]  Unable to estimate", spp_names[i] , "lengths from the test fishery data. Using default mean and variance.\n")        
         next
       }
       ## If mu not provided, compute here
@@ -728,7 +729,7 @@ set_species_lengths <- function(self, mu = NULL, sigma = NULL, proportions_chino
     sigma_chin <- self$default_parameters$sigma[chinook_names]
 
     chinook_list <- fitChinookLengths(x, chinook_names, mu_chin, sigma_chin, proportions_chin = proportions_chinook_, 
-      mu_fixed = mu, sigma_fixed = sigma)
+      mu_fixed = mu, sigma_fixed = sigma, verbose = verbose)
     mu_[chinook_names] <- chinook_list$mu
     sigma_[chinook_names] <- chinook_list$sigma
     proportions_chinook_[chinook_names] <- chinook_list$p
@@ -752,7 +753,7 @@ set_species_lengths <- function(self, mu = NULL, sigma = NULL, proportions_chino
 #' @return List with mean, standard deviation, and proportions for Chinook.
 #'
 #' @export
-fitChinookLengths <- function(x, chinook_names, mu_chin, sigma_chin, proportions_chin, mu_fixed = NULL, sigma_fixed = NULL){
+fitChinookLengths <- function(x, chinook_names, mu_chin, sigma_chin, proportions_chin, mu_fixed = NULL, sigma_fixed = NULL, verbose = FALSE){
     nchinook <- length(chinook_names)
 
     ## See what values are fixed:
@@ -798,7 +799,7 @@ fitChinookLengths <- function(x, chinook_names, mu_chin, sigma_chin, proportions
         sigma_est <- fit_all$sigma[ord]
         p_est <- fit_all$proportion[ord]
       }else{
-        cat("[Warning]  Chinook mixture for jack Chinook did not fit.\n")
+        if(verbose) cat("[Warning]  Chinook mixture for jack Chinook did not fit.\n")
       }
       if(nchinook == 3){
         if(fit_all$mu[3] - fit_all$mu[2] < 3) cat("[Warning]  Chinook mixture means for small and large adults are very close. Suggest choosing one size class.\n")
@@ -817,7 +818,7 @@ fitChinookLengths <- function(x, chinook_names, mu_chin, sigma_chin, proportions
       adult_sucess <- TRUE
       if(mu_est[2] < 50){
         adult_sucess <- FALSE  ## Can't allow adult chinook to be size of jack.
-        cat("[Warning]  Chinook mixture means for small adults look to be fitting the size of jacks. Suggest choosing one size class.\n")
+        if(verbose) cat("[Warning]  Chinook mixture means for small adults look to be fitting the size of jacks. Suggest choosing one size class.\n")
       }
       if(abs(diff(fit_adult$mu[2:3])) < 3) cat("[Warning]  Chinook mixture means for small and large adults are very close. Suggest choosing one size class.\n")
     }

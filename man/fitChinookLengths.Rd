@@ -11,7 +11,8 @@ fitChinookLengths(
   sigma_chin,
   proportions_chin,
   mu_fixed = NULL,
-  sigma_fixed = NULL
+  sigma_fixed = NULL,
+  verbose = FALSE
 )
 }
 \arguments{

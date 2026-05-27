@@ -27,6 +27,8 @@ fit_joint_model <- function(self){
   include_test_fishery <- self$fit_info$include_test_fishery
 
   wgts <- self$data_list$length_data$weights
+  ## Scale for natural comparison with test fishery.
+  wgts <- wgts/max(wgts)  
   obs_lengths <- self$data_list$length_data$L.cm.adj
   lower_delta_mu <- self$data_list$lower_delta_mu
   upper_delta_mu <- self$data_list$upper_delta_mu
@@ -407,6 +409,8 @@ basicMixtureModel <- function(x, K = NULL, mu = NULL, sigma = NULL, prob = NULL,
     if(length(sigma) == 0) sigma <- NULL
   }
   if(is.null(wgts)) wgts <- rep(1, length(x))
+  ## scale weights:
+  wgts <- wgts/max(wgts)
   logit_prob <- fn_null(logitM, x=prob)
   
   pars_init <- list()

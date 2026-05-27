@@ -199,7 +199,8 @@ Set species length parameter information
   proportion_adultchinook = NULL,
   test_fishery_lengths = NULL,
   ndays = 6,
-  plot = FALSE
+  plot = FALSE,
+  verbose = FALSE
 )}\if{html}{\out{</div>}}
 }
 
@@ -217,6 +218,8 @@ Set species length parameter information
 \item{\code{ndays}}{Number of prior days to use from test fishery lengths (default = 6).}
 
 \item{\code{plot}}{Logical to plot the estimated mean and variance set by the function.}
+
+\item{\code{verbose}}{Logical to print warning messages or not.}
 }
 \if{html}{\out{</div>}}
 }
