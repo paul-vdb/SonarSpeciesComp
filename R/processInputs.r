@@ -448,7 +448,7 @@ process_mission_catch <- function(self, test_fishery_counts, name = "whonnock", 
   test_fishery_counts <- test_fishery_counts |> 
                          within(soak_time <- (full_out-start_out)/2 + (start_in - full_out) + (full_in-start_in)^0.5/2) |>
                          within(effort <- soak_time*net_length/1000)
-  
+
   out <- test_fishery_counts[,c("TRIP_DTT", "FE_SET_NO", "effort", "net_length")]
   names(out)[1] <- "Date"
   out$Date <- as.Date(out$Date)
@@ -563,6 +563,10 @@ set_daily_data <- function(self){
       }
     }
     catch <- catch |> within(day <- as.numeric(factor(Date)))
+    if(any(catch$effort == 0)){
+      cat("[Warning]  Removing test fishery observations from due to zero effort (recorded) for those observations.\n")
+      catch <- catch |> subset(effort > 0)
+    }
 
     ## Setup names of test fishery information:
     catch <- catch |> subset(paste(species, fishery, sep = "_") %in% self$data_info$test_fishery_spp)
