@@ -945,7 +945,8 @@ process_albion_catch <- function(self, albion_catch){
   
   ## Net lengths in fathoms:
   ## Chum net = 150, Chinook net = 200 fathoms
-  albion_catch <- albion_catch |> within(net_length <- ifelse(grepl("chum", NET_CONFIG, ignore.case = TRUE), 150, 200))
+  # albion_catch <- albion_catch |> within(net_length <- ifelse(grepl("chum", NET_CONFIG, ignore.case = TRUE), 150, 200))
+  albion_catch <- albion_catch |> within(net_length <- 200)
   albion_total <- albion_catch |> aggregate(CATCH_QTY~CRPT_DTT+NET_CONFIG+SET_NO, sum)
 
   albion_set <- albion_catch |> by( ~ CRPT_DTT+NET_CONFIG+SET_NO, 
