@@ -236,22 +236,25 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
 
 #' @export
 default_params <- function(){
-  default_parameters <- list()
-  ## Expansion Line Albion: 3049 (2020 Brittany Jenewein)
-  default_parameters$alpha <- c(0,0,0,0)
-  default_parameters$alpha_jackchinook <- 0
-  default_parameters$beta <- c(0, 0)
-  default_parameters$mu <- c("smallresident" = 23, "largeresident" = 35, "pink" = 50, "sockeye" = 58, "coho" = 65, "chum" = 70, "jackchinook" = 40, "smalladultchinook" = 62, "largeadultchinook" = 80, "adultchinook" = 70)
-  default_parameters$sigma <- c("smallresident" = 2.5, "largeresident" = 2.5, "pink" = 4, "sockeye" = 3.5, "coho" = 3.5, "chum" = 3, "jackchinook" = 2.5, "smalladultchinook" = 4, "largeadultchinook" = 6, "adultchinook" = 7)
-  default_parameters$sigma0 <- 4.5
-  default_parameters$delta_mu <- c("smallresident" = 0, "largeresident" = 0, "pink" = 0, "sockeye" = 0, "coho" = 0, "chum" = 0, "jackchinook" = 0, "smalladultchinook" = 0, "largeadultchinook" = 0, "adultchinook" = 0)
-  default_parameters$proportion_adultchinook <- c("smalladultchinook" = 0.2, "largeadultchinook" = 0.8, "adultchinook" = 1)
-  default_parameters
+
+  .default_parameters <- list()
+  if(!is.null(.GlobalEnv$default_parameters)){
+    .default_parameters <- .GlobalEnv$default_parameters
+  }
+  if(is.null(.default_parameters$alpha)) .default_parameters$alpha <- c(0,0,0,0)
+  if(is.null(.default_parameters$alpha_jackchinook)) .default_parameters$alpha_jackchinook <- 0
+  if(is.null(.default_parameters$beta)) .default_parameters$beta <- c(0, 0)
+  if(is.null(.default_parameters$mu)) .default_parameters$mu <- c("smallresident" = 23, "largeresident" = 35, "pink" = 50, "sockeye" = 58, "coho" = 65, "chum" = 70, "jackchinook" = 40, "smalladultchinook" = 62, "largeadultchinook" = 80, "adultchinook" = 70)
+  if(is.null(.default_parameters$sigma)) .default_parameters$sigma <- c("smallresident" = 2.5, "largeresident" = 2.5, "pink" = 4, "sockeye" = 3.5, "coho" = 3.5, "chum" = 3, "jackchinook" = 2.5, "smalladultchinook" = 4, "largeadultchinook" = 6, "adultchinook" = 7)
+  if(is.null(.default_parameters$sigma0)) .default_parameters$sigma0 <- 4.5
+  if(is.null(.default_parameters$delta_mu)) .default_parameters$delta_mu <- c("smallresident" = 0, "largeresident" = 0, "pink" = 0, "sockeye" = 0, "coho" = 0, "chum" = 0, "jackchinook" = 0, "smalladultchinook" = 0, "largeadultchinook" = 0, "adultchinook" = 0)
+  if(is.null(.default_parameters$proportion_adultchinook)) .default_parameters$proportion_adultchinook <- c("smalladultchinook" = 0.2, "largeadultchinook" = 0.8, "adultchinook" = 1)
+  .default_parameters
 }
 
 #' @export
 set_default_expansion <- function(tfnames){
-
+  ## Expansion Line Albion: 3049 (2020 Brittany Jenewein)
   init <- numeric(length(tfnames))
   names(init) <- tfnames
   init[grep("sockeye", tfnames)] <- 10000
@@ -742,7 +745,7 @@ set_species_lengths <- function(self, mu = NULL, sigma = NULL, proportions_chino
   self$default_parameters$mu <- mu_
   self$default_parameters$sigma <- sigma_
   self$default_parameters$alpha_jackchinook <- log(proportions_chinook_[1]/(1-proportions_chinook_[1]))
-  self$default_parameters$proportion_adultchinook <- chinook_list$p[2:nchinook]/(1-chinook_list$p[1])
+  self$default_parameters$proportion_adultchinook <- proportions_chinook_[chinook_names[-1]]/(1-proportions_chinook_[chinook_names[1]])
 }
 
 #' Fit Chinook Lengths
@@ -833,6 +836,7 @@ fitChinookLengths <- function(x, chinook_names, mu_chin, sigma_chin, proportions
         sigma_est[1] <- sd(xjack)
         p_est <- proportions_chin[1]
       }else{
+        if(verbose) cat("[Warning]  Unable to estimate jack chinook lengths from the test fishery data. Using default mean and variance.\n")        
         mu_est[1] <- mu_chin[1]
         sigma_est[1] <- sigma_chin[1]
         p_est[1] <- proportions_chin[1]
@@ -844,6 +848,7 @@ fitChinookLengths <- function(x, chinook_names, mu_chin, sigma_chin, proportions
         sigma_est[2:nchinook] <- sd(xadult)
         p_est[2:nchinook] <- proportions_chin[2:nchinook]
       }else{
+        if(verbose) cat("[Warning]  Unable to estimate adult chinook lengths from the test fishery data. Using default mean and variance.\n")        
         mu_est[2:nchinook] <- mu_chin[2:nchinook]
         sigma_est[2:nchinook] <- sigma_chin[2:nchinook]
         p_est[2:nchinook] <- proportions_chin[2:nchinook]
