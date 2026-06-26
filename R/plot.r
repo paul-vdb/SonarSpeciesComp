@@ -148,7 +148,7 @@ plot_test_fishery <- function(self){
     }
     xx <- seq(prior_mean[i] - 5*prior_sd[i], prior_mean[i] + 5*prior_sd[i], length = 300)
     f <- do.call('c', lapply(xx, fni))
-    rbind(priors, data.frame(parameter = names(obj$params_estimated$qinv)[i], x = xx, y = f)
+    rbind(priors, data.frame(parameter = names(obj$params_estimated$qinv)[i], x = xx, y = f))
   }
   
   if (require("ggplot2", quietly = TRUE)) {
