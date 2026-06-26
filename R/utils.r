@@ -164,14 +164,16 @@ addJacobian <- function(fn, includeJacobian){
 
 #' Return prior function
 #'
-#' @param fn Prior distribution
+#' @param fn Prior distribution as a function.
+#' @param jac Jacobian transformation as a function (Default NULL).
+#' @param includeJacobian Logical to include the jacobian or not (Default FALSE).
 #'
 #' @details Add ADoverload to user passed functions to ensure that they work within the RTMB package.
 #'
 #' @return A function, either the prior originally passed as fn, or a function that only returns 0. 
 #'
 #' @export
-addPrior <- function(fn){
+addPrior <- function(fn, jac = NULL, includeJacobian = FALSE){
   if(!is.function(fn)){
     return(\(...){
     "c" <- ADoverload("c")
@@ -185,7 +187,12 @@ addPrior <- function(fn){
       environment()
     })
     environment(fn) <- env_fn
-    fn_sum <- function(x, ...){sum(fn(x, ...))}
+    if(!is.null(jac) & includeJacobian){ 
+      environment(jac) <- env_fn
+      fn_sum <- function(x, ...){sum(fn(x, ...) + jac(x, ...)) }
+    }else{ 
+      fn_sum <- function(x, ...){sum(fn(x, ...)) }
+    }
     return(fn_sum)
   }
 }
@@ -458,3 +465,4 @@ rbind_lazy <- function(pars1 = NULL, pars2 = NULL){
   pars1 <- rbind(pars1, pars2[,names(pars1)])
   return(pars1)
 }
+

@@ -17,7 +17,6 @@
 #' @field sim_data List of daily simulated data to match data_list.
 #' @field default_parameters List of default parameter values to use when inits are not provided.
 #' @field prior_distributions List of prior distributions for all parameters.
-#' @field prior_jacobians List of prior jacobians for all parameters to account for parameter transformations.
 #'
 #' @importFrom R6 R6Class
 #' @export
@@ -39,7 +38,6 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
     sim_data = NULL,
     default_parameters = NULL,
     prior_distributions = NULL,
-    prior_jacobians = NULL,    
     
     #' @description Initialize the R6 object
     #' @param species vector of species names  e.g. c("largeresident", "jackChinook", "sockeye", "adultchinook").
@@ -88,9 +86,6 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
       self$prior_distributions <- list(dlog_qinv = default_prior, dbeta = default_prior, dalpha_jackchinook = default_prior, 
                                        dlog_sigma = default_prior, dmu = default_prior, dlogit_delta_mu = default_prior, dlog_sigma0 = default_prior,
                                        dsmallresident = default_prior, dlargeresident = default_prior)
-      self$prior_jacobians <- list(dlog_qinv = default_prior, dbeta = default_prior, dalpha_jackchinook = default_prior, 
-                                       dlog_sigma = default_prior, dmu = default_prior, dlogit_delta_mu = default_prior, dlog_sigma0 = default_prior,
-                                       dsmallresident = default_prior, dlargeresident = default_prior)                                       
     },
     #' @description Update the R6 object with species names to fit in a model.
     #' @param species Character vector with options are "smallresident", "largeresident", "pink", "sockeye", "coho", "chum", "jackchinook", "adultchinook", "smalladultchinook", "largeadultchinook"
@@ -270,23 +265,19 @@ set_default_expansion <- function(tfnames){
 
 #' @export
 set_priors <- function(self, priors = list(), includeJacobian = TRUE){        
+  ## Make Tape and use Atomic here:
   self$prior_distributions <- list()
-  self$prior_jacobians <- list()
                                       
-  self$prior_distributions$dlog_qinv <- addPrior(priors$qinv)
-  self$prior_jacobians$dlog_qinv <- addJacobian(\(x){sum(log(abs(x)))}, includeJacobian & !is.null(priors$qinv))                                   
-  self$prior_distributions$dlog_sigma <- addPrior(priors$sigma)
-  self$prior_jacobians$dlog_sigma <- addJacobian(\(x){sum(log(abs(x)))}, includeJacobian & !is.null(priors$sigma))
-  self$prior_distributions$dlog_sigma0 <- addPrior(priors$sigma0)
-  self$prior_jacobians$dlog_sigma0 <- addJacobian(\(x){log(abs(x[1]))}, includeJacobian & !is.null(priors$sigma0))
-  self$prior_distributions$dlogit_delta_mu <- addPrior(priors$delta_mu)
-  self$prior_jacobians$dlogit_delta_mu <- addJacobian(logDetJac_logitInterval, includeJacobian & !is.null(priors$delta_mu))
+  self$prior_distributions$dlog_qinv <- addPrior(priors$qinv, \(x){sum(log(abs(x)))}, includeJacobian & !is.null(priors$qinv))
+  self$prior_distributions$dlog_sigma <- addPrior(priors$sigma, \(x){sum(log(abs(x)))}, includeJacobian & !is.null(priors$sigma))
+  self$prior_distributions$dlog_sigma0 <- addPrior(priors$sigma0,\(x){log(abs(x[1]))}, includeJacobian & !is.null(priors$sigma0))
+  self$prior_distributions$dlogit_delta_mu <- addPrior(\(x, ...){priors$delta_mu(x)}, logDetJac_logitInterval, includeJacobian & !is.null(priors$delta_mu))
 
-  self$prior_distributions$dmu <- addPrior(priors$mu)
-  self$prior_distributions$dbeta <- addPrior(priors$beta)
-  self$prior_distributions$dalpha_jackchinook <- addPrior(priors$alpha_jackchinook)
-  self$prior_distributions$dlargeresident <- addPrior(priors$N_largeresident)
-  self$prior_distributions$dsmallresident <- addPrior(priors$N_smallresiden)
+  self$prior_distributions$dmu <- addPrior(priors$mu, NULL, FALSE)
+  self$prior_distributions$dbeta <- addPrior(priors$beta, NULL, FALSE)
+  self$prior_distributions$dalpha_jackchinook <- addPrior(priors$alpha_jackchinook, NULL, FALSE)
+  self$prior_distributions$dlargeresident <- addPrior(priors$N_largeresident, NULL, FALSE)
+  self$prior_distributions$dsmallresident <- addPrior(priors$N_smallresident, NULL, FALSE)
 }
 
 #' @export
@@ -911,7 +902,7 @@ set_model_parameters <- function(self, fixed_parameters = c("mu", "sigma", "prop
   extractParams(self, initial_values$alpha_jackchinook, fixed_values$alpha_jackchinook, self$default_parameters$alpha_jackchinook, name = "alpha_jackchinook")  
   ## Set beta
   nbeta <- ncol(self$data_list$X_length)
-  self$default_parameters$beta <- rep(0, nbeta)
+  if(length(self$default_parameters$beta) != nbeta) self$default_parameters$beta <- rep(0, nbeta)
   extractParams(self, initial_values[["beta"]], fixed_values[["beta"]], self$default_parameters[["beta"]], name = "beta")
   ## Set mu
   extractParams(self, initial_values[["mu"]], fixed_values[["mu"]], self$default_parameters$mu[self$species_info$species], name = "mu")  
