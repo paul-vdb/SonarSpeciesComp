@@ -38,6 +38,8 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
     sim_data = NULL,
     default_parameters = NULL,
     prior_distributions = NULL,
+    .prior_dens = NULL,
+    .posterior_dens = NULL,
     
     #' @description Initialize the R6 object
     #' @param species vector of species names  e.g. c("largeresident", "jackChinook", "sockeye", "adultchinook").
@@ -268,10 +270,10 @@ set_priors <- function(self, priors = list(), includeJacobian = TRUE){
   ## Make Tape and use Atomic here:
   self$prior_distributions <- list()
                                       
-  self$prior_distributions$dlog_qinv <- addPrior(priors$qinv, \(x){sum(log(abs(x)))}, includeJacobian & !is.null(priors$qinv))
-  self$prior_distributions$dlog_sigma <- addPrior(priors$sigma, \(x){sum(log(abs(x)))}, includeJacobian & !is.null(priors$sigma))
-  self$prior_distributions$dlog_sigma0 <- addPrior(priors$sigma0,\(x){log(abs(x[1]))}, includeJacobian & !is.null(priors$sigma0))
-  self$prior_distributions$dlogit_delta_mu <- addPrior(\(x, ...){priors$delta_mu(x)}, logDetJac_logitInterval, includeJacobian & !is.null(priors$delta_mu))
+  self$prior_distributions$dlog_qinv <- addPrior(priors$qinv, \(x){log(abs(x))}, includeJacobian & !is.null(priors$qinv))
+  self$prior_distributions$dlog_sigma <- addPrior(priors$sigma, \(x){log(abs(x))}, includeJacobian & !is.null(priors$sigma))
+  self$prior_distributions$dlog_sigma0 <- addPrior(priors$sigma0,\(x){log(abs(x))}, includeJacobian & !is.null(priors$sigma0))
+  self$prior_distributions$dlogit_delta_mu <- addPrior(priors$delta_mu, logDetJac_logitInterval, includeJacobian & !is.null(priors$delta_mu))
 
   self$prior_distributions$dmu <- addPrior(priors$mu, NULL, FALSE)
   self$prior_distributions$dbeta <- addPrior(priors$beta, NULL, FALSE)

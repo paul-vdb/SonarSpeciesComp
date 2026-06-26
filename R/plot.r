@@ -130,6 +130,27 @@ plot_test_fishery <- function(self){
   test_catch <- test_catch |> within(par <- factor(paste(test_catch$species, test_catch$fishery, test_catch$net_type, sep = "_")))
   test_catch$diff <- CPUE - E_CPUE
 
+  lower <- self$data_list$lower_delta_mu
+  upper <- self$data_list$upper_delta_mu
+
+  prior <- MakeTape(\(x){-self$prior_distributions$dlog_qinv(exp(x))}, log(obj$params_estimated$qinv))
+  he_prior <- prior$jacfun()$jacfun()
+  prior_newt <- prior$newton(1:length(obj$params_estimated$qinv))
+  prior_mean <- prior_newt(numeric(0))
+  prior_sd <- sqrt(1/diag(he_prior(prior_mean)))
+  priors <- data.frame()
+  
+  for( i in seq_along(prior_mean) ){
+    mu <- prior_mean
+    fni <- \(x){ 
+      mu[i] <- x
+      return(prior(mu))
+    }
+    xx <- seq(prior_mean[i] - 5*prior_sd[i], prior_mean[i] + 5*prior_sd[i], length = 300)
+    f <- do.call('c', lapply(xx, fni))
+    rbind(priors, data.frame(parameter = names(obj$params_estimated$qinv)[i], x = xx, y = f)
+  }
+  
   if (require("ggplot2", quietly = TRUE)) {
     plot_h <- ggplot(data = test_catch, aes(x = Date, y = diff, colour = fishery, shape = net_type)) + 
       geom_point(size = 2) + 

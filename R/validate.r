@@ -66,9 +66,9 @@ validate_estimates = function(self){
   prior_sds <- sqrt(1/diag(ad_obj_prior$he(fit_prior$par)))
 
   ## Plot priors:
-  prior_means <- ad_obj_prior$env$parList(fit$par)
-  prior_lower <- ad_obj_prior$env$parList(fit$par - 5*prior_sds)
-  prior_upper <- ad_obj_prior$env$parList(fit$par + 5*prior_sds)
+  prior_means <- ad_obj_prior$env$parList(fit_prior$par)
+  prior_lower <- ad_obj_prior$env$parList(fit_prior$par - 5*prior_sds)
+  prior_upper <- ad_obj_prior$env$parList(fit_prior$par + 5*prior_sds)
   prior_sds <- ad_obj_prior$env$parList(prior_sds)
 
   prior_dists <- list()
@@ -79,18 +79,38 @@ validate_estimates = function(self){
     for( j in seq_along(prior_means[[i]])){
       fn <- \(x){
         y[j] <- x
-        ans <- self$prior_distributions[[dnames[i]]](y)
-        if(dnames[i] %in% names(self$prior_jacobians)) ans <- ans + self$prior_jacobians[[dnames[i]]](y)
-        ans
+        if(grepl("log_", dnames[i])) y <- exp(y)
+        if(grepl("logit_", dnames[i])) y <- ilogitInterval(y, lower_delta_mu, upper_delta_mu)
+        if(dnames[i] == "dlogit_delta_mu"){ 
+          ans <- self$prior_distributions[[dnames[i]]](y, lower = lower_delta_mu, upper = upper_delta_mu)
+        }else{
+          ans <- self$prior_distributions[[dnames[i]]](y)
+        }
       }
       if(prior_sds[[i]][j] == Inf){
-          xx <- seq(-50, 50, length = 200)
-          df <- rep(1, 200)
+          xx <- seq(-50, 50, length = 300)
+          df <- rep(1, 300)
       }else{
-        xx <- seq(prior_lower[[i]][j], prior_upper[[i]][j], length = 200)
+        xx <- seq(prior_lower[[i]][j], prior_upper[[i]][j], length = 300)
         df <- exp(do.call('c', lapply(xx, fn)))
       }
-      prior_dists[[paste0(names(prior_means)[i], "_", names(prior_means[[i]])[j])]] <- data.frame(x = xx, f = df)
+      if(grepl("log_", dnames[i])) xx <- exp(xx)
+      if(grepl("logit_", dnames[i])) xx <- ilogitInterval(xx, lower_delta_mu[j], upper_delta_mu[j])
+      prior_dists[[paste0(names(prior_means)[i], "_", j)]] <- data.frame(x = xx, f = df)
     }
   }
 }
+
+i <- 20
+name <- names(prior_dists)[i]
+name <- gsub("log_|logit_", "", name)
+namei <- gsub("_.*", "", name)
+j <- as.numeric(gsub(".*_", "", name))
+namej <- names(obj$params_estimated[[namei]])[j]
+x <- obj$params_estimated[[namei]][j]
+rangex <- range(prior_dists[[i]]$x)
+if(rangex[1] > x) rangex[1] <- 1.01*x
+if(rangex[2] < x) rangex[2] <- 1.01*x
+
+plot(prior_dists[[i]], xlim = rangex, xlab = paste(namei, namej), type = 'l', ylab = "Prior Density")
+abline(v = x, col = 'red')

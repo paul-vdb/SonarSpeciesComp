@@ -113,6 +113,9 @@ logitInterval <- function(x, lower, upper){
 #'
 #' @export
 logDetJac_logitInterval <- function(x, lower, upper){
+  "c" <- ADoverload("c")
+  "[<-" <- ADoverload("[<-")
+
   delta <- upper-lower
   gr <- delta/((lower-x)*(lower+delta-x))
   sum(-log(abs(gr)))
@@ -189,8 +192,13 @@ addPrior <- function(fn, jac = NULL, includeJacobian = FALSE){
     environment(fn) <- env_fn
     if(!is.null(jac) & includeJacobian){ 
       environment(jac) <- env_fn
-      fn_sum <- function(x, ...){sum(fn(x, ...) + jac(x, ...)) }
-    }else{ 
+      args_fn <- formals(fn)
+      if(length(args_fn) > 1){
+        fn_sum <- function(x, ...){sum(fn(x, ...) + jac(x, ...)) }
+      }else{
+        fn_sum <- function(x, ...){sum(fn(x) + jac(x, ...)) }
+      }
+    }else{
       fn_sum <- function(x, ...){sum(fn(x, ...)) }
     }
     return(fn_sum)
