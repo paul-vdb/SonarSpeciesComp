@@ -101,16 +101,16 @@ validate_estimates = function(self){
   }
 }
 
-i <- 20
-name <- names(prior_dists)[i]
-name <- gsub("log_|logit_", "", name)
-namei <- gsub("_.*", "", name)
-j <- as.numeric(gsub(".*_", "", name))
-namej <- names(obj$params_estimated[[namei]])[j]
-x <- obj$params_estimated[[namei]][j]
-rangex <- range(prior_dists[[i]]$x)
-if(rangex[1] > x) rangex[1] <- 1.01*x
-if(rangex[2] < x) rangex[2] <- 1.01*x
+# i <- 20
+# name <- names(prior_dists)[i]
+# name <- gsub("log_|logit_", "", name)
+# namei <- gsub("_.*", "", name)
+# j <- as.numeric(gsub(".*_", "", name))
+# namej <- names(obj$params_estimated[[namei]])[j]
+# x <- obj$params_estimated[[namei]][j]
+# rangex <- range(prior_dists[[i]]$x)
+# if(rangex[1] > x) rangex[1] <- 1.01*x
+# if(rangex[2] < x) rangex[2] <- 1.01*x
 
-plot(prior_dists[[i]], xlim = rangex, xlab = paste(namei, namej), type = 'l', ylab = "Prior Density")
-abline(v = x, col = 'red')
+# plot(prior_dists[[i]], xlim = rangex, xlab = paste(namei, namej), type = 'l', ylab = "Prior Density")
+# abline(v = x, col = 'red')
