@@ -250,6 +250,7 @@ plot_prior <- function(self, parameter){
   priors$facet_name <- "Prior Distribution Effect"
   
   param <- gsub("log_|logit_", "", parameter)
+  mu <- self$params_estimated[[param]]
   if(param %in% c("qinv", "mu", "sigma", "sigma0")) mu <- log(self$params_estimated[[param]])
   if(param == "delta_mu") mu <- logitInterval(self$params_estimated[["delta_mu"]], self$data_list$lower_delta_mu, self$data_list$upper_delta_mu)
   
