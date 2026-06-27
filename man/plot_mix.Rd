@@ -23,5 +23,5 @@ Plot weighted histogram along with estimated proportions.
 }
 \details{
 Taken from \code{plotrix} package for the weighted histogram, reworked for specific purposes. This function
-is called directly from \verb{$plot} within the R6 object.
+is called directly from \verb{$plotMix} within the R6 object.
 }

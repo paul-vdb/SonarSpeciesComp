@@ -4,10 +4,12 @@
 \alias{plot_test_fishery}
 \title{Plot Pearson residuals of test fishery model (CPUE - Nq)}
 \usage{
-plot_test_fishery(self)
+plot_test_fishery(self, includePrior = TRUE)
 }
 \arguments{
 \item{self}{R6 speciesCompModel object.}
+
+\item{includePrior}{Should the prior distribution be plotted alongside the estimates.}
 }
 \description{
 Plot Pearson residuals of test fishery model (CPUE - Nq)

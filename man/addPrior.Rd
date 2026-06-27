@@ -4,10 +4,14 @@
 \alias{addPrior}
 \title{Return prior function}
 \usage{
-addPrior(fn)
+addPrior(fn, jac = NULL, includeJacobian = FALSE)
 }
 \arguments{
-\item{fn}{Prior distribution}
+\item{fn}{Prior distribution as a function.}
+
+\item{jac}{Jacobian transformation as a function (Default NULL).}
+
+\item{includeJacobian}{Logical to include the jacobian or not (Default FALSE).}
 }
 \value{
 A function, either the prior originally passed as fn, or a function that only returns 0.

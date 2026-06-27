@@ -38,8 +38,6 @@ An R6 base class that is used to step through all the different setups and steps
 \item{\code{default_parameters}}{List of default parameter values to use when inits are not provided.}
 
 \item{\code{prior_distributions}}{List of prior distributions for all parameters.}
-
-\item{\code{prior_jacobians}}{List of prior jacobians for all parameters to account for parameter transformations.}
 }
 \if{html}{\out{</div>}}
 }
@@ -60,6 +58,7 @@ An R6 base class that is used to step through all the different setups and steps
 \item \href{#method-SpeciesCompModel-plotTestFishery}{\code{speciesCompModel$plotTestFishery()}}
 \item \href{#method-SpeciesCompModel-plotBeamSpreading}{\code{speciesCompModel$plotBeamSpreading()}}
 \item \href{#method-SpeciesCompModel-plotTestFisheryLengths}{\code{speciesCompModel$plotTestFisheryLengths()}}
+\item \href{#method-SpeciesCompModel-priorCheck}{\code{speciesCompModel$priorCheck()}}
 \item \href{#method-SpeciesCompModel-clone}{\code{speciesCompModel$clone()}}
 }
 }
@@ -344,9 +343,16 @@ Plot the fitted mixture model against the historgram of the length data.
 \subsection{Method \code{plotTestFishery()}}{
 Plot Pearson residuals for the test fishery data (CPUE - Nq) against each species, test fishery, and net type.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{speciesCompModel$plotTestFishery()}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{speciesCompModel$plotTestFishery(includePrior = TRUE)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{includePrior}}{Should the prior distribution be plotted alongside the estimates.}
+}
+\if{html}{\out{</div>}}
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-SpeciesCompModel-plotBeamSpreading"></a>}}
@@ -354,9 +360,16 @@ Plot Pearson residuals for the test fishery data (CPUE - Nq) against each specie
 \subsection{Method \code{plotBeamSpreading()}}{
 Plot estimated beam spreading effects against sonar range.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{speciesCompModel$plotBeamSpreading()}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{speciesCompModel$plotBeamSpreading(includePrior = TRUE)}\if{html}{\out{</div>}}
 }
 
+\subsection{Arguments}{
+\if{html}{\out{<div class="arguments">}}
+\describe{
+\item{\code{includePrior}}{Should the prior distribution be plotted alongside the estimates.}
+}
+\if{html}{\out{</div>}}
+}
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-SpeciesCompModel-plotTestFisheryLengths"></a>}}
@@ -376,6 +389,15 @@ Plot test fishery lengths against the assumed mean and standard deviation to be 
 }
 \if{html}{\out{</div>}}
 }
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-SpeciesCompModel-priorCheck"></a>}}
+\if{latex}{\out{\hypertarget{method-SpeciesCompModel-priorCheck}{}}}
+\subsection{Method \code{priorCheck()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{speciesCompModel$priorCheck(parameter)}\if{html}{\out{</div>}}
+}
+
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-SpeciesCompModel-clone"></a>}}

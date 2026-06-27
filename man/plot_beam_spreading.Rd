@@ -4,10 +4,12 @@
 \alias{plot_beam_spreading}
 \title{Plot Beam Spreading Trend}
 \usage{
-plot_beam_spreading(self)
+plot_beam_spreading(self, includePrior = TRUE)
 }
 \arguments{
-\item{self}{R6 speciesCompModel object.}
+\item{self}{R6 speciesCompModel selfect.}
+
+\item{includePrior}{Should the prior distribution be plotted alongside the estimates.}
 }
 \description{
 Plot Beam Spreading Trend
