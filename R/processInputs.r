@@ -215,18 +215,25 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
       plot_mix(self, day = day, ...)
     },
     #' @description Plot Pearson residuals for the test fishery data (CPUE - Nq) against each species, test fishery, and net type.
-    plotTestFishery = function(){
-      plot_test_fishery(self)
+    #' @param includePrior Should the prior distribution be plotted alongside the estimates.
+    plotTestFishery = function(includePrior = TRUE){
+      plot_test_fishery(self, includePrior = includePrior)
     },
     #' @description Plot estimated beam spreading effects against sonar range.
-    plotBeamSpreading = function(){
-      plot_beam_spreading(self)
+    #' @param includePrior Should the prior distribution be plotted alongside the estimates.
+    plotBeamSpreading = function(includePrior = TRUE){
+      plot_beam_spreading(self, includePrior = includePrior)
     },
     #' @description Plot test fishery lengths against the assumed mean and standard deviation to be used in the model.
     #' @param test_fishery_lengths Length data frame that contains Date, FL.cm, and Species.
     #' @param ndays Number of days to join for plotting test fishery data.
     plotTestFisheryLengths = function(test_fishery_lengths = NULL, ndays = 6){
       plot_test_fishery_lengths(self, test_fishery_lengths = test_fishery_lengths, ndays = ndays)
+    },
+    priorCheck = function(parameter){
+      if(parameter %in% c("sigma", "mu", "sigma0", "qinv")) parameter <- paste0("log_", parameter)
+      if(parameter == "delta_mu") parameter <- paste0("logit_delta_mu")
+      plot_prior(self, parameter)
     }
   )
 )
@@ -269,12 +276,11 @@ set_default_expansion <- function(tfnames){
 set_priors <- function(self, priors = list(), includeJacobian = TRUE){        
   ## Make Tape and use Atomic here:
   self$prior_distributions <- list()
-                                      
+    
   self$prior_distributions$dlog_qinv <- addPrior(priors$qinv, \(x){log(abs(x))}, includeJacobian & !is.null(priors$qinv))
   self$prior_distributions$dlog_sigma <- addPrior(priors$sigma, \(x){log(abs(x))}, includeJacobian & !is.null(priors$sigma))
   self$prior_distributions$dlog_sigma0 <- addPrior(priors$sigma0,\(x){log(abs(x))}, includeJacobian & !is.null(priors$sigma0))
   self$prior_distributions$dlogit_delta_mu <- addPrior(priors$delta_mu, logDetJac_logitInterval, includeJacobian & !is.null(priors$delta_mu))
-
   self$prior_distributions$dmu <- addPrior(priors$mu, NULL, FALSE)
   self$prior_distributions$dbeta <- addPrior(priors$beta, NULL, FALSE)
   self$prior_distributions$dalpha_jackchinook <- addPrior(priors$alpha_jackchinook, NULL, FALSE)

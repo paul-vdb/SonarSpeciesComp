@@ -50,7 +50,7 @@ histplot <- function(x, wgts, range = c(35, 120), delta = 2, ylim = NA, xlim = N
 #' @param ... Additional options to pass to plot function.
 #'
 #' @details Taken from `plotrix` package for the weighted histogram, reworked for specific purposes. This function
-#' is called directly from `$plot` within the R6 object.
+#' is called directly from `$plotMix` within the R6 object.
 #'
 #' @return list of range to plot under (`$range`), the binned values (`$lengths`), and histplot `$density`.
 #'
@@ -113,11 +113,14 @@ plot_mix <- function(self, day = 1, ...){
 #' Plot Pearson residuals of test fishery model (CPUE - Nq)
 #' 
 #' @param self R6 speciesCompModel object.
+#' @param includePrior Should the prior distribution be plotted alongside the estimates.
 #'
 #' @details Plot the Pearson residuals for the test fishery catch, displayed as CPUE - Nq. x-axis labels are species - test fishery - net type.
 #'
+#' @import ggplot2
+#'
 #' @export
-plot_test_fishery <- function(self){
+plot_test_fishery <- function(self, includePrior = TRUE){
   if(!any(self$est_date %in% self$params_estimated$N_daily$Date)) 
     stop("Must run 'fitModel' before trying to predict species composition for this date.")
 
@@ -129,29 +132,21 @@ plot_test_fishery <- function(self){
   
   test_catch <- test_catch |> within(par <- factor(paste(test_catch$species, test_catch$fishery, test_catch$net_type, sep = "_")))
   test_catch$diff <- CPUE - E_CPUE
-
-  lower <- self$data_list$lower_delta_mu
-  upper <- self$data_list$upper_delta_mu
-
-  prior <- MakeTape(\(x){-self$prior_distributions$dlog_qinv(exp(x))}, log(obj$params_estimated$qinv))
-  he_prior <- prior$jacfun()$jacfun()
-  prior_newt <- prior$newton(1:length(obj$params_estimated$qinv))
-  prior_mean <- prior_newt(numeric(0))
-  prior_sd <- sqrt(1/diag(he_prior(prior_mean)))
-  priors <- data.frame()
-  
-  for( i in seq_along(prior_mean) ){
-    mu <- prior_mean
-    fni <- \(x){ 
-      mu[i] <- x
-      return(prior(mu))
-    }
-    xx <- seq(prior_mean[i] - 5*prior_sd[i], prior_mean[i] + 5*prior_sd[i], length = 300)
-    f <- do.call('c', lapply(xx, fni))
-    rbind(priors, data.frame(parameter = names(obj$params_estimated$qinv)[i], x = xx, y = f))
-  }
-  
+      
   if (require("ggplot2", quietly = TRUE)) {
+    if(includePrior){
+      priors <- prior_assess(self, "log_qinv")
+      priors$facet_name <- "Prior Distribution Effect"
+
+      p_prior <- ggplot(priors, aes(x = x, y = y)) + 
+        geom_line(aes(colour = parameter), linewidth = 0.8) + 
+        geom_vline(data = data.frame(x = log(self$params_estimated$qinv), parameter = names(self$params_estimated$qinv)), 
+                                      aes(xintercept = x, colour=parameter), linetype = 2, linewidth = 0.8) + 
+        theme_bw() + 
+        facet_wrap(~facet_name) + 
+        xlab("Log Expansion Line") + 
+        ylab("Prior Density")
+    }
     plot_h <- ggplot(data = test_catch, aes(x = Date, y = diff, colour = fishery, shape = net_type)) + 
       geom_point(size = 2) + 
       theme_bw() + 
@@ -160,8 +155,10 @@ plot_test_fishery <- function(self){
       xlab("") + ylab("CPUE - Nq") + 
       geom_hline(yintercept = 0, col = 'red', linetype = 2)# + 
       # theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1))
-      suppressWarnings(print(plot_h))
+      if(!includePrior){ suppressWarnings(print(plot_h))
+      }else{ suppressWarnings(multiplot(plotlist = list(plot_h, p_prior), cols = 1)) }
   }else {
+    cat("[Warning]  We recommend running this function for nicer plots with ggplot2 installed.\n")
     plot(as.numeric(test_catch$par), CPUE - E_CPUE, xlab = "", ylab = "CPUE - Nq", pch = 16, xaxt = "n", main = paste0("Test Fishery: ", self$est_date))
     axis(1, at = sort(unique(as.numeric(test_catch$par))), labels = gsub("_", "\n ", levels(test_catch$par)), tick = TRUE, padj = 0.5)
     abline(h = 0, col = 'red', lty = 2)
@@ -175,12 +172,13 @@ plot_test_fishery <- function(self){
 
 #' Plot Beam Spreading Trend
 #' 
-#' @param self R6 speciesCompModel object.
+#' @param self R6 speciesCompModel selfect.
+#' @param includePrior Should the prior distribution be plotted alongside the estimates.
 #'
 #' @details Plot the change in expected species length against sonar range (m).
 #'
 #' @export
-plot_beam_spreading <- function(self){
+plot_beam_spreading <- function(self, includePrior = TRUE){
   if(!any(self$est_date %in% self$params_estimated$N_daily$Date)) 
     stop("Must run 'fitModel' before trying to predict species composition for this date.")
   
@@ -197,21 +195,37 @@ plot_beam_spreading <- function(self){
   spp <- self$species_info$species
 
   if (require("ggplot2", quietly = TRUE)) {
+    if(includePrior){
+      priors <- prior_assess(self, "beta")
+      priors$facet_name <- "Prior Distribution Effect"
+
+      p_prior <- ggplot(priors, aes(x = x, y = y)) + 
+        geom_line(aes(colour = parameter), linewidth = 0.8) + 
+        geom_vline(data = data.frame(x = self$params_estimated$beta, parameter = names(self$params_estimated$beta)), 
+                                      aes(xintercept = x, colour=parameter), linetype = 2, linewidth = 0.8) + 
+        theme_bw() + 
+        facet_wrap(~facet_name) + 
+        xlab("Beam Spreading Effect (Beta)") + 
+        ylab("Prior Density")
+    }
     X2 <- NULL
     for( i in seq_along(spp) ) 
       X2 <- rbind(X2, Xnew |> within(species <- spp[i]) |> within(mu <- mu[i] + adjust)) 
       X2 <- X2 |> within(species <- factor(species, levels = spp))
 
+    X2$facet_name <- paste0("Beam Spreading: ", self$est_date)
     plot_h <- ggplot(data = X2, aes(x = R.m, y = mu, colour = species)) + 
       geom_line(linewidth = 1) +
       ylab('Expected Length (cm)') + 
       xlab('Range (m)') + 
-      ggtitle(paste0("Beam Spreading: ", self$est_date)) + 
+      facet_wrap(~facet_name) + 
       theme_bw() +
       geom_hline(data = data.frame(mu = as.numeric(mu), species = spp), aes(colour = species, yintercept = mu), linetype = 2) +
       scale_colour_manual("Species", labels = speciesLabels(spp), values = speciesColours(spp))
-      suppressWarnings(print(plot_h))
-  }else{
+      if(!includePrior){ suppressWarnings(print(plot_h))
+      }else{ suppressWarnings(multiplot(plotlist = list(plot_h, p_prior), cols = 1)) }
+  }else {
+    cat("[Warning]  We recommend running this function for nicer plots with ggplot2 installed.\n")
     plot(0, ylim = c(0,100), xlim = c(0, max(Xnew$R.m)), pch = '', ylab = 'Expected Length (cm)', xlab = 'Range (m)', main = paste0("Beam Spreading: ", self$est_date))
     for( i in seq_along(spp) ){
       lines(Xnew$R.m, mu[i] + Xnew$adjust, col = speciesColours(spp[i]))
@@ -221,6 +235,36 @@ plot_beam_spreading <- function(self){
             lty = rep(1, length(spp)), ncol = 2)
   }
   return(invisible(NULL))
+}
+
+#' Plot prior distribution against fitted posterior mode.
+#' 
+#' @param self R6 speciesCompModel object.
+#' @param parameter Which parameter to plot, on the transformed scale (e.g. "log_qinv").
+#'
+#' @details Makes a plot of the histogram to help identify issues with the prior and fitted values.
+#'
+#' @export
+plot_prior <- function(self, parameter){
+  priors <- prior_assess(self, parameter)
+  priors$facet_name <- "Prior Distribution Effect"
+  
+  param <- gsub("log_|logit_", "", parameter)
+  if(param %in% c("qinv", "mu", "sigma", "sigma0")) mu <- log(self$params_estimated[[param]])
+  if(param == "delta_mu") mu <- logitInterval(self$params_estimated[["delta_mu"]], self$data_list$lower_delta_mu, self$data_list$upper_delta_mu)
+  
+  spp <- self$species_info$species
+  
+  plot_p <- ggplot(priors, aes(x = x, y = y)) + 
+    geom_line(aes(colour = parameter), linewidth = 0.8) + 
+    geom_vline(data = data.frame(x = mu, parameter = names(self$params_estimated[[param]])), 
+                                  aes(xintercept = x, colour=parameter), linetype = 2, linewidth = 0.8) + 
+    theme_bw() + 
+    facet_wrap(~facet_name) + 
+    xlab(parameter) + 
+    ylab("Prior Density")
+  if(all(names(self$params_estimated[[param]]) %in% spp)) plot_p <- plot_p + scale_colour_manual("Species", labels = speciesLabels(spp), values = speciesColours(spp))
+  suppressWarnings(print(plot_p))
 }
 
 #' Plot Test Fishery Lengths
@@ -311,4 +355,36 @@ speciesColours <- function(species){
   cols <- c("smallresident" = "#FFB100", "largeresident" = "#656837",  "jackchinook" = "#A33CC7", "pink" = "#FF8DA1", 
     "sockeye" = "#CD0000", "coho" = "#228833", "chum" = "#B8604A", "chinook" = "#27408B", "adultchinook" = "#27408B", "smalladultchinook" = "#27408B", "largeadultchinook" = "#27408B")
   cols[species]
+}
+
+#' Grid plot of ggplot objects
+#' 
+#' @import ggplot2
+#' @import grid
+#'
+#' @export
+multiplot <- function(..., plotlist=NULL, cols) {
+    require(grid, quietly = TRUE)
+
+    # Make a list from the ... arguments and plotlist
+    plots <- c(list(...), plotlist)
+
+    numPlots = length(plots)
+
+    # Make the panel
+    plotCols = cols                          # Number of columns of plots
+    plotRows = ceiling(numPlots/plotCols) # Number of rows needed, calculated from # of cols
+
+    # Set up the page
+    grid.newpage()
+    pushViewport(grid::viewport(layout = grid.layout(plotRows, plotCols)))
+    vplayout <- function(x, y)
+        grid::viewport(layout.pos.row = x, layout.pos.col = y)
+
+    # Make each plot, in the correct location
+    for (i in 1:numPlots) {
+        curRow = ceiling(i/plotCols)
+        curCol = (i-1) %% plotCols + 1
+        print(plots[[i]], vp = vplayout(curRow, curCol ))
+    }
 }
