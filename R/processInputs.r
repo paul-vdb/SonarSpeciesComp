@@ -592,7 +592,7 @@ set_daily_data <- function(self){
   ## Estimate total salmon:
   salmon_counts <- self$salmon_counts |> subset(Date %in% dates_)
   if(self$data_info$site == "Mission") salmon_counts <- salmon_counts |> subset(!grepl("AIM", grp))
-  self$data_list$total_salmon <- salmon_counts |> aggregate(count~Date, sum)
+  if(any(duplicated(salmon_counts$Date))) self$data_list$total_salmon <- salmon_counts |> aggregate(count~Date, sum)
 }
 
 #' Set Model Proportions
