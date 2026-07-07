@@ -187,7 +187,7 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
       self$data_list$X_test_fishery <- model.matrix(self$data_info$test_fishery_formula, data = self$data_list$test_fishery_catch)
       ## Remove columns that are all zero (e.g. sockeye has 1 net type).
       csum <- colSums(abs(self$data_list$X_test_fishery)) 
-      self$data_list$X_test_fishery <- self$data_list$X_test_fishery[, csum > 0]
+      self$data_list$X_test_fishery <- self$data_list$X_test_fishery[, csum > 0, drop = FALSE]
       colnames(self$data_list$X_test_fishery) <- gsub("species|net_type|fishery", "", colnames(self$data_list$X_test_fishery))
       colnames(self$data_list$X_test_fishery) <- gsub(":", "_", colnames(self$data_list$X_test_fishery))
 
