@@ -752,7 +752,7 @@ set_species_lengths <- function(self, mu = NULL, sigma = NULL, proportions_chino
   self$default_parameters$mu <- mu_
   self$default_parameters$sigma <- sigma_
   self$default_parameters$alpha_jackchinook <- log(proportions_chinook_[1]/(1-proportions_chinook_[1]))
-  self$default_parameters$proportion_adultchinook <- proportions_chinook_[chinook_names[-1]]/(1-proportions_chinook_[chinook_names[1]])
+  self$default_parameters$proportion_adultchinook <- proportions_chinook_[self$species_info$species_chinook[-1]]/(1-proportions_chinook_[self$species_info$species_chinook[1]])
 }
 
 #' Fit Chinook Lengths
