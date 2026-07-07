@@ -136,7 +136,7 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
         if("albion" %in% names(test_fishery_counts)) process_albion_catch(self, test_fishery_counts[["albion"]] )
         if("brownsvillebar" %in% names(test_fishery_counts)) process_mission_catch(self, test_fishery_counts[["brownsvillebar"]], name = "brownsvillebar", tangled = include_tangled)        
         if(!is.null(salmon_passage_table)){
-          if("TotalSalmon Official" == colnames(salmon_passage_table)) {
+          if(any("TotalSalmon Official" == colnames(salmon_passage_table))) {
             salmon_passage_table$Date <- as.Date(salmon_passage_table$MissionDate)
             suppressWarnings(newtab <- data.frame(Date = salmon_passage_table$Date, count = salmon_passage_table$`TotalSalmon Official`) |> subset(!is.na(as.numeric(count))))
             self$salmon_counts <- newtab
