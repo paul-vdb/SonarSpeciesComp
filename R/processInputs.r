@@ -138,7 +138,7 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
         if(!is.null(salmon_passage_table)){
           if(any("TotalSalmon Official" == colnames(salmon_passage_table))) {
             salmon_passage_table$Date <- as.Date(salmon_passage_table$MissionDate)
-            suppressWarnings(newtab <- data.frame(Date = salmon_passage_table$Date, count = salmon_passage_table$`TotalSalmon Official`, grp = 1) |> subset(!is.na(as.numeric(count))))
+            suppressWarnings(newtab <- data.frame(Date = salmon_passage_table$Date, count = as.numeric(salmon_passage_table$`TotalSalmon Official`)) |> subset(!is.na(count)))
             self$salmon_counts <- newtab
           }else{ 
             process_mission_salmon_passage(self, salmon_passage_table)
