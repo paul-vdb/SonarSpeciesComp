@@ -18,6 +18,7 @@ make_negll <- function(self){
   
   adjust_lengths <- self$fit_info$adjust_lengths
   include_test_fishery <- self$fit_info$include_test_fishery
+  proportion_adultchinook <- self$params_fixed[["proportion_adultchinook"]]  
 
   wgts <- self$data_list$length_data$weights
   ## Scale for natural comparison with test fishery.
