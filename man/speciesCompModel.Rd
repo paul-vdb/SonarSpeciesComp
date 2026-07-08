@@ -38,6 +38,10 @@ An R6 base class that is used to step through all the different setups and steps
 \item{\code{default_parameters}}{List of default parameter values to use when inits are not provided.}
 
 \item{\code{prior_distributions}}{List of prior distributions for all parameters.}
+
+\item{\code{.posterior_summary}}{Summary of the posterior sample.}
+
+\item{\code{.posterior_sample}}{Matrix with samples from the posterior.}
 }
 \if{html}{\out{</div>}}
 }

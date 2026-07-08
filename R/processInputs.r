@@ -17,6 +17,8 @@
 #' @field sim_data List of daily simulated data to match data_list.
 #' @field default_parameters List of default parameter values to use when inits are not provided.
 #' @field prior_distributions List of prior distributions for all parameters.
+#' @field .posterior_summary Summary of the posterior sample.
+#' @field .posterior_sample Matrix with samples from the posterior.
 #'
 #' @importFrom R6 R6Class
 #' @export
@@ -38,8 +40,8 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
     sim_data = NULL,
     default_parameters = NULL,
     prior_distributions = NULL,
-    .prior_dens = NULL,
-    .posterior_dens = NULL,
+    .posterior_summary = NULL,
+    .posterior_sample = NULL,
     
     #' @description Initialize the R6 object
     #' @param species vector of species names  e.g. c("largeresident", "jackChinook", "sockeye", "adultchinook").
@@ -204,7 +206,8 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
       self$data_info$test_fishery_weights <- extractControls(control$test_fishery_weights, self$data_info$test_fishery_weights)
       self$fit_info$adjust_lengths <- extractControls(control$adjust_lengths, self$fit_info$adjust_lengths)
     
-      fit_joint_model(self)
+      est_pars <- fit_joint_model(self)
+      return(est_pars)
     },
     #' @description Simulate the model for the counts on the 'est_date' and 'ndays' with parameter values equal to 'params_estimated' within the object.
     simulate = function(){

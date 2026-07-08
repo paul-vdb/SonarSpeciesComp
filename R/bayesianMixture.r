@@ -111,6 +111,72 @@ make_negll <- function(self){
   return(negll)
 }
 
+#' Compute posterior parameter values
+#'
+#'
+#' @param self The R6 `speciesCompModel` that is set up for a model run.
+#' @param post Matrix of simualted parameter values that are directly estimated.
+#' @param ad_obj AD model object that was used to fit that we can then generate true values from.
+#'
+#' @return matrix of simulated values transformed to predicted values.
+#'
+#' @export
+compute_param_values <- function(self, post, ad_obj){
+  nbeta <- ncol(self$data_list$X_length)
+  test_fishery_catch <- self$data_list$test_fishery_catch
+  test_fishery_weights <- self$data_info$test_fishery_weights
+  X_test_fishery <- self$data_list$X_test_fishery
+  names_tf <- colnames(X_test_fishery)
+  species <- self$species_info$species
+  nspp <- length(species)
+  nother <- self$species_info$nother
+  proportion_adultchinook <- self$params_fixed[["proportion_adultchinook"]]  
+
+  est_pars <- self$params_estimated
+
+  Nd <- est_pars$N_daily |> subset(select=-Date) |> as.matrix()
+  Pd <- est_pars$p_daily |> subset(select=-Date) |> as.matrix()
+  Nnames <- paste0("N[",rep(1:nrow(Nd), ncol(Nd)), ",", rep(1:ncol(Nd), each = nrow(Nd)), "]")
+  Pnames <- paste0("P[",rep(1:nrow(Pd), ncol(Pd)), ",", rep(1:ncol(Pd), each = nrow(Pd)), "]")
+  betanames <- paste0("beta[", 1:length(est_pars$beta), "]")
+  qinvnames <- paste0("qinv[", 1:length(est_pars$qinv), "]")
+  sigma0names <- "sigma0[1]"
+  deltanames <- paste0("delta_mu[", 1:length(est_pars$delta_mu), "]")
+  muadjnames <- paste0("mu_adjusted[", 1:length(est_pars$mu_adjusted), "]")
+  alphajacknames <- paste0("alpha_jack[", 1:length(est_pars$alpha_jackchinook), "]")
+  alphanames <- paste0("alpha[", 1:length(est_pars$alpha), "]")
+  munames <- paste0("mu[", 1:length(est_pars$mu), "]")
+  sigmanames <- paste0("sigma[", 1:length(est_pars$sigma), "]")
+
+  names <- c(munames, sigmanames, alphanames, alphajacknames, deltanames, muadjnames, sigma0names, betanames, qinvnames, Pnames, Nnames)
+  output <- matrix(NA, ncol = length(names), nrow = nrow(post))
+  colnames(output) <- names
+  
+  for( i in 1:nrow(post) ){
+    parsi <- ad_obj$env$parList(post[i,])
+
+    output[i, betanames] <- parsi$beta
+    output[i, munames] <- parsi$mu
+    output[i, sigmanames] <- exp(parsi$log_sigma)
+    output[i, deltanames] <- ilogitInterval(parsi$logit_delta_mu, self$data_list$lower_delta_mu, self$data_list$upper_delta_mu)
+    output[i, muadjnames] <- parsi$mu + output[i, deltanames]
+    output[i, sigma0names] <- exp(parsi$log_sigma0)
+    output[i, qinvnames] <- exp(parsi$log_qinv)
+    output[i, alphanames] <- parsi$alpha
+    output[i, alphajacknames] <- parsi$alpha_jackchinook
+
+    ## Set up proportions. alpha parameter for predicting proportions. 
+    p <- calcProportions(alpha = parsi$alpha, alpha_jackchinook = parsi$alpha_jackchinook, 
+      p_adultchinook = proportion_adultchinook, Xprop = self$data_list$X_proportions, 
+      K0 = nother, K = nspp)
+    p_daily <- estimate_daily_proportions(p, self$data_list$pred_df, species)
+    N_daily <- estimate_daily_salmon(p_daily, self$data_list$total_salmon, species)  ## Combine adult chinook and remove smallresident fish.
+    output[i, Nnames] <- c(N_daily)
+    output[i, Pnames] <- c(p_daily)
+  }
+  output
+}
+
 #' Fit joint species composition model as a Bayesian model.
 #'
 #' Expectation-Maximization algorithm for fitting the joint hydroacoustic lengths and test fishery model.
@@ -127,7 +193,7 @@ make_negll <- function(self){
 #'
 #' @import tmbstan
 #' @export
-fit_posterior <- function(self){
+run_full_model <- function(self, bayesian = TRUE){
   species <- self$species_info$species
   species_N <- self$species_info$species_predict
   
@@ -172,7 +238,11 @@ fit_posterior <- function(self){
   ## Start with MAP:
   control <- self$fit_info
   control$verbose <- FALSE
-  est_pars <- self$fitModel(control = control)
+  if(self$est_date == max(self$params_estimated$N_daily$Date)){
+    est_pars <- self$params_estimated
+  }else{
+    est_pars <- self$fitModel(control = control)
+  }
 
   ## 1) Mean Fish Size:
   inits <- list()
@@ -198,112 +268,33 @@ fit_posterior <- function(self){
     pari[names(est_pars[[par_names[i]]]) %in% names(pars_fixed[[i]])] <- NA
     par_map[[var_id]] <- as.factor(pari)
   }
-  .dates <- seq(obj$est_date - ndays + 1, obj$est_date, 1)
-  if(mle){
-    ad_obj <- MakeADFun(negll, inits, map = par_map, silent = TRUE)
+  ad_obj <- MakeADFun(negll, inits, map = par_map, silent = TRUE)  
+  nsim <- extractControls( control$nsim, 1000 )
+  warmup <- extractControls( control$warmup, 500 )
+  ad_obj <- MakeADFun(negll, inits, map = par_map, silent = TRUE)
+  if(!bayesian){
     fit.mle <- nlminb(ad_obj$par, ad_obj$fn, ad_obj$gr)
     sdrep <- sdreport(ad_obj)
-    mle_sum <- data.frame(summary(sdrep, "fixed"))
-    npars <- nrow(mle_sum)
-    est_ndaily <- NULL
-    est_pdaily <- NULL
-    for( i in 1:1000 ){
-      parsi <- mle_sum[,"Estimate"] + rnorm(npars, 0, mle_sum[, "Std..Error"])
-      parsi <- ad_obj$env$parList(parsi)
-
-      ## Set up proportions. alpha parameter for predicting proportions. 
-      p <- calcProportions(alpha = parsi$alpha,alpha_jackchinook =  parsi$alpha_jackchinook, 
-        p_adultchinook = proportion_adultchinook, Xprop = self$data_list$X_proportions, 
-        K0 = nother, K = nspp)
-      p_daily <- estimate_daily_proportions(p, self$data_list$pred_df, species)
-      N_daily <- estimate_daily_salmon(p_daily, self$data_list$total_salmon, species)  ## Combine adult chinook and remove smallresident fish.
-      N_daily <- data.frame(N_daily)
-      names(N_daily) <- self$species_info$species_predict
-      N_daily <- cbind(Date = self$data_list$days, N_daily)
-      p_daily <- cbind(self$data_list$days, as.data.frame(p_daily))
-      p_daily$iter <- i
-      N_daily$iter <- i
-      est_ndaily <- rbind(est_ndaily, N_daily)
-      est_pdaily <- rbind(est_pdaily, p_daily)
-    }
-    ndaily_long <- reshape(est_ndaily, varying = list(self$species_info$species_predict), direction = "long",  sep = "_", timevar = "species", times = self$species_info$species_predict, v.names = "count") 
-    ndaily_long |> ggplot(aes(x = count, colour = factor(Date))) + geom_density() + facet_wrap(~species, scale = "free") + theme_bw()
-
-    spp_pred <- self$species_info$species_predict
-    ndays
-    Ndaily <- mle_pred |> within(parameter <- rownames(mle_pred)) |> subset(grepl("N_daily", parameter)) |> within(species <- rep(spp_pred, each = ndays))
-    Ndaily <- Ndaily |> within(Date <- rep(.dates, nrow(Ndaily)/ndays))
-    ggplot(data = Ndaily, aes(x = Date, y = Estimate, colour = species)) + geom_point() + geom_errorbar(aes(ymin = Estimate - Std..Error*2, ymax = Estimate + Std..Error*2)) + facet_wrap(~species, scale = "free") + theme_bw()
+    mle_sum <- data.frame(summary(sdrep, "fixed"))    
+    post <- NULL
+    for( i in 1:nsim) post <- rbind(post, mle_sum[,"Estimate"] + rnorm(npars, 0, mle_sum[, "Std..Error"]))
   }else{
-    ## Start at MAP to just quickly approx the posterior:
-    ad_obj <- MakeADFun(negll, inits, map = par_map, silent = TRUE)  
-    fit <- tmbstan(ad_obj, chains=1, iter = 2000, warmup = 500, init = "par")
-
-    post_sum <- summary(fit)
+    fit <- tmbstan(ad_obj, chains=1, iter = nsim + warmup, warmup = warmup, init = "par")
     post <- as.matrix(fit)
     post <- post[, colnames(post) != "lp__"]
-    rnames <- rownames(post_sum$summary)
-    post_sum <- data.frame(post_sum$summary)
-    post_sum$parameters <- rnames
-    post_sum <- post_sum |> subset(parameters != "lp__")
-    
-    ## Uncertainty in N_daily:
-    Ndaily <- pdaily <- NULL
-    for(i in 1:nrow(post)){
-      r <- ad_obj$report(post[i,])
-      Ndaily <- rbind(Ndaily, cbind(1:nrow(r$N_daily), r$N_daily))
-      pdaily <- rbind(pdaily, cbind(1:nrow(r$p_daily), r$p_daily))
-    }
-    colnames(Ndaily) <- names(est_pars$N_daily)
-    colnames(pdaily) <- names(est_pars$p_daily)
-    
-    plot(density(Ndaily[Ndaily[,1] == 3,"sockeye"]))
-    lines(density(ndaily_long$count[ndaily_long$Date == .dates[3] & ndaily_long$species == "sockeye"]), col = 'red')
-    quantile(ndaily_long$count[ndaily_long$Date == .dates[3] & ndaily_long$species == "sockeye"], c(0.025, 0.95))
-    quantile(Ndaily[Ndaily[,1] == 3,"sockeye"], c(0.025, 0.95))
-
-    plot(density(Ndaily[Ndaily[,1] == 3,"chinook"]))
-    lines(density(ndaily_long$count[ndaily_long$Date == .dates[3] & ndaily_long$species == "chinook"]), col = 'red')
-
-    hist(Ndaily[Ndaily[,1] == 3,"sockeye"])
-    plot(density(Ndaily[Ndaily[,1] == 3,"sockeye"]))
-    abline(v = est_pars$N_daily[3,"sockeye"], col = 'red')
-    
-    hist(Ndaily[Ndaily[,1] == 3,"chinook"])
-    plot(density(Ndaily[Ndaily[,1] == 3,"chinook"]))
-    abline(v = est_pars$N_daily[3,"chinook"], col = 'red') 
   }
+  output <- compute_param_values(self, post, ad_obj)
+  self$.posterior_sample <- output
 
-  plot(density(post[, "log_sigma0"]))
-  abline(v = log(est_pars$sigma0), col = 'red')
+  spp_alpha <- names(self$data_list$X_proportions)[do.call("c", lapply(1:length(self$data_list$X_proportions), FUN = function(x){rep(x, ncol(self$data_list$X_proportions[[x]]))}))]
+  alpha_names <- paste0(spp_alpha, "_", do.call("c", lapply(self$data_list$X_proportions, colnames)))
+  pnames <- paste0(rep(species, each = nrow(est_pars$p_daily)), "_", rep(est_pars$p_daily$Date, each = length(species)))
+  dnames <- paste0(rep(species_N, each = nrow(est_pars$N_daily)), "_", rep(est_pars$N_daily$Date, each = length(species_N)))
 
-  plot(density(post[, "beta[1]"]))
-  abline(v = est_pars$beta[1], col = 'red')
-
-  
-  which.max(mle_sum$Std..Error - post_sum$sd)
-  mle_sum[16,]
-  post_sum[16,]
-  
-  plot(mle_sum$Std..Error, post_sum$sd)
-  abline(0,1, col = 'red')
-  plot(mle_sum$Estimate, post_sum$mean)
-  abline(0,1, col = 'red')
-  
-  
-  plot(fit)
-  post <- as.matrix(fit)
-  lp <- post[, ncol(post)]
-  post <- post[,-ncol(post)]
-
-  i <- 1
-  colnames(post) <- gsub("\\[.*", "", colnames(post))
-  
-  Ndaily <- NULL
-  for(i in 1:nrow(post)){
-    r <- ad_obj$report(post[i,])
-  }
-  hist(Ndaily[,2])
-  plot(density(Ndaily[,2]))
-  abline(v = est_pars$N_daily[3,3], col = 'red')
+  sum.out <- data.frame(parameter = gsub("\\[.*", "", colnames(output)),
+    type = c(species, species, alpha_names, species, species, 1, names(est_pars$beta), names(est_pars$qinv), pnames, dnames),
+    param = colnames(output)
+  )
+  sum.out <- cbind(sum.out, "mean" = apply(output, 2, mean), "sd" = apply(output, 2, sd), t(apply(output, 2, quantile, c(0.025, 0.5, 0.0975))))
+  self$.posterior_summary <- sum.out
 }

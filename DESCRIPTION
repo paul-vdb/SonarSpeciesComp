@@ -11,7 +11,8 @@ Description: This package includes methods to estimate species composition
 License: MIT + file LICENSE
 Imports: 
     R6,
-    RTMB
+    RTMB,
+    tmbstan
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.2
