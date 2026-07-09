@@ -297,6 +297,6 @@ run_full_model <- function(self, bayesian = TRUE){
     type = c(species, species, alpha_names, species, species, 1, names(est_pars$beta), names(est_pars$qinv), pnames, dnames),
     param = colnames(output)
   )
-  sum.out <- cbind(sum.out, "mean" = apply(output, 2, mean), "sd" = apply(output, 2, sd), t(apply(output, 2, quantile, c(0.025, 0.5, 0.0975))))
+  sum.out <- cbind(sum.out, "mean" = apply(output, 2, mean), "sd" = apply(output, 2, sd), t(apply(output, 2, quantile, c(0.025, 0.5, 0.975))))
   self$.posterior_summary <- sum.out
 }
