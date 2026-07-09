@@ -728,7 +728,7 @@ set_species_lengths <- function(self, mu = NULL, sigma = NULL, proportions_chino
     tfdays <- test_fishery_lengths |> subset(Date %in% dates_)
 
     ## Remove any zero length data as a double check:
-    tfdays <- tfdays |> subset(FL.cm > 0)
+    tfdays <- tfdays |> subset(!is.na(FL.cm)) |> subset(FL.cm > 0)
     
     for(i in seq_along(spp_names) ){
       tfl <- tfdays |> subset(grepl(spp_names[i], tolower(Species)) & !is.na(FL.cm))
