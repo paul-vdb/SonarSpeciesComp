@@ -180,8 +180,11 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
                                   test_fishery_spp = NULL){
       ## If user wants to update the date and species, they can do that here:
       if(!is.null(expansion_formula)) self$data_info$test_fishery_formula <- expansion_formula
-      if(!is.null(test_fishery_spp)) {
-        self$data_info$test_fishery_spp <- test_fishery_spp
+      if(!is.null(test_fishery_spp)){
+        spp <- paste(self$species_info$species_predict, collapse = "|")
+        keep <- grep(spp, test_fishery_spp)
+        self$data_info$test_fishery_spp <- test_fishery_spp[keep]
+        if(length(keep) != length(test_fishery_spp)) cat("[Warning]  Removing species in 'test_fishery_spp' not active in model. \n")
       }
       self$setDate(date, ndays)
       set_daily_data(self)
@@ -569,6 +572,7 @@ set_daily_data <- function(self){
       catch_i <- self$test_fishery_catch[[i]] |> 
                                     subset(as.Date(Date) %in% dates_) |> 
                                     subset(select = cols_i)
+      if(!self$est_date %in% catch_i$Date) cat("[Warning]  Estimation date missing from", tf_names[i], "test fishery.\n")
       if(nrow(catch_i) == 0) next;
       spp_i <- spp_tf[spp_tf %in% names(catch_i)]
       for( j in 1:nrow(catch_i) ){
@@ -684,7 +688,7 @@ set_length_adjustment <- function(self, formula = NULL){
 set_species_lengths <- function(self, mu = NULL, sigma = NULL, proportions_chinook = NULL, test_fishery_lengths = NULL, ndays = 7, verbose = FALSE){
 
   dates_ <- seq(self$est_date - ndays + 1, self$est_date, 1)
-
+  
   ## Default values:
   mu_ <-  self$default_parameters$mu[self$species_info$species]
   sigma_ <- self$default_parameters$sigma[self$species_info$species]
@@ -722,6 +726,9 @@ set_species_lengths <- function(self, mu = NULL, sigma = NULL, proportions_chino
     spp_names_sigma <- setdiff(grep("resident", self$species_info$species_other, invert = TRUE, value = TRUE), names(sigma))
     spp_names <- unique(c(spp_names_mu, spp_names_sigma))
     tfdays <- test_fishery_lengths |> subset(Date %in% dates_)
+
+    ## Remove any zero length data as a double check:
+    tfdays <- tfdays |> subset(FL.cm > 0)
     
     for(i in seq_along(spp_names) ){
       tfl <- tfdays |> subset(grepl(spp_names[i], tolower(Species)) & !is.na(FL.cm))
