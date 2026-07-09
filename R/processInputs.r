@@ -180,8 +180,9 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
                                   test_fishery_spp = NULL){
       ## If user wants to update the date and species, they can do that here:
       if(!is.null(expansion_formula)) self$data_info$test_fishery_formula <- expansion_formula
-      if(!is.null(test_fishery_spp)) self$data_info$test_fishery_spp <- test_fishery_spp
-
+      if(!is.null(test_fishery_spp)) {
+        self$data_info$test_fishery_spp <- test_fishery_spp
+      }
       self$setDate(date, ndays)
       set_daily_data(self)
 

@@ -277,6 +277,7 @@ run_full_model <- function(self, bayesian = TRUE){
     fit.mle <- nlminb(ad_obj$par, ad_obj$fn, ad_obj$gr)
     sdrep <- sdreport(ad_obj)
     mle_sum <- data.frame(summary(sdrep, "fixed"))    
+    npars <- nrow(mle_sum)
     post <- NULL
     for( i in 1:nsim) post <- rbind(post, mle_sum[,"Estimate"] + rnorm(npars, 0, mle_sum[, "Std..Error"]))
   }else{
