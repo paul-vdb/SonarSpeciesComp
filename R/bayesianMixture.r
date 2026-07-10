@@ -72,7 +72,7 @@ make_negll <- function(self){
     ## Prior Distributions:
     objval <- objval - self$prior_distributions$dlog_qinv(qinv) - self$prior_distributions$dbeta(beta) - self$prior_distributions$dalpha_jackchinook(alpha_jackchinook) - 
         self$prior_distributions$dlog_sigma(sigma_spp) - self$prior_distributions$dmu(mu) - self$prior_distributions$dlogit_delta_mu(delta_mu, lower = lower_delta_mu, upper = upper_delta_mu) - 
-        self$prior_distributions$dlog_sigma0(sigma0)
+        self$prior_distributions$dlog_sigma0(sigma0) - self$prior_distributions$dalpha(alpha)
           
     ## Set up proportions. alpha parameter for predicting proportions. 
     p <- calcProportions(alpha = alpha, alpha_jackchinook = alpha_jackchinook, 
@@ -296,6 +296,7 @@ run_full_model <- function(self, bayesian = TRUE){
     type = c(species, species, alpha_names, species, species, 1, names(est_pars$beta), names(est_pars$qinv), pnames, dnames),
     param = colnames(output)
   )
-  sum.out <- cbind(sum.out, "mean" = apply(output, 2, mean), "sd" = apply(output, 2, sd), t(apply(output, 2, quantile, c(0.025, 0.5, 0.975))))
+  sum.out <- cbind(sum.out, "mean" = apply(output, 2, mean), "mode" = apply(output, 2, findGlobalMode), "sd" = apply(output, 2, sd), t(apply(output, 2, quantile, c(0.025, 0.5, 0.975))))
   self$.posterior_summary <- sum.out
 }
+

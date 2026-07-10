@@ -87,7 +87,7 @@ fit_joint_model <- function(self){
     ## Prior Distributions:
     ll <- ll + self$prior_distributions$dlog_qinv(exp(log_qinv)) + self$prior_distributions$dbeta(beta) + self$prior_distributions$dalpha_jackchinook(alpha_jackchinook) +
           self$prior_distributions$dlog_sigma(exp(log_sigma)) + self$prior_distributions$dmu(mu) + self$prior_distributions$dlogit_delta_mu(delta_mu, lower = lower_delta_mu, upper = upper_delta_mu) +
-          self$prior_distributions$dlog_sigma0(exp(log_sigma0))
+          self$prior_distributions$dlog_sigma0(exp(log_sigma0)) - self$prior_distributions$dalpha(alpha)
 
     ## Set up proportions. alpha parameter for predicting proportions. 
     ## Xalpha is a list of design matrices for each species.
@@ -162,7 +162,7 @@ fit_joint_model <- function(self){
       ## Prior Distributions:
       objval <- objval - self$prior_distributions$dlog_qinv(exp(log_qinv)) - self$prior_distributions$dbeta(beta) - self$prior_distributions$dalpha_jackchinook(alpha_jackchinook) - 
           self$prior_distributions$dlog_sigma(exp(log_sigma)) - self$prior_distributions$dmu(mu) - self$prior_distributions$dlogit_delta_mu(delta_mu, lower = lower_delta_mu, upper = upper_delta_mu) - 
-          self$prior_distributions$dlog_sigma0(exp(log_sigma0))
+          self$prior_distributions$dlog_sigma0(exp(log_sigma0)) - self$prior_distributions$dalpha(alpha)
             
       ## Set up proportions. alpha parameter for predicting proportions. 
       p <- calcProportions(alpha = alpha, alpha_jackchinook = alpha_jackchinook, 

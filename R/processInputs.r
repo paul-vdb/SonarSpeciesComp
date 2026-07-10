@@ -204,14 +204,24 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
     #' @description EM algorithm for fitting the joint species composition model.
     #' @param control List containing \code{controlOptimization} arguments as well as '$include_test_fishery' - logical to include or exclude test fishery catch information in the model, '$adjust_lengths' logical include beam spreading adjusment, and '$test_fishery_weights' the model weights for the test fishery.
     #' @return List of parameter estimates, which is also stored in the \code{params_estimated} field of the R6 object.
-    fitModel = function(control = list()){
+    fitModel = function(control = list(), include_uncertainty = FALSE){
       self$controlOptimization(control)
       self$fit_info$include_test_fishery <- extractControls(control$include_test_fishery, self$fit_info$include_test_fishery)
       self$data_info$test_fishery_weights <- extractControls(control$test_fishery_weights, self$data_info$test_fishery_weights)
       self$fit_info$adjust_lengths <- extractControls(control$adjust_lengths, self$fit_info$adjust_lengths)
-    
+
       est_pars <- fit_joint_model(self)
+      
+      if(include_uncertainty){
+        bayesian <- extractControls( control$bayesian, TRUE )  
+        self$computeCredibleIntervals(bayesian, control)
+      }
       return(est_pars)
+    },
+    computeCredibleIntervals = function(bayesian = TRUE, control = list()){
+      self$fit_info$warmup <- extractControls( control$warmup, 500 )  
+      self$fit_info <- nsim <- extractControls( control$nsim, 1000 )
+      run_full_model(self, bayesian)
     },
     #' @description Simulate the model for the counts on the 'est_date' and 'ndays' with parameter values equal to 'params_estimated' within the object.
     simulate = function(){
