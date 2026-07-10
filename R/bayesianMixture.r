@@ -272,7 +272,6 @@ run_full_model <- function(self, bayesian = TRUE){
   ad_obj <- MakeADFun(negll, inits, map = par_map, silent = TRUE)  
   nsim <- extractControls( control$nsim, 1000 )
   warmup <- extractControls( control$warmup, 500 )
-  ad_obj <- MakeADFun(negll, inits, map = par_map, silent = TRUE)
   if(!bayesian){
     fit.mle <- nlminb(ad_obj$par, ad_obj$fn, ad_obj$gr)
     sdrep <- sdreport(ad_obj)
@@ -291,7 +290,7 @@ run_full_model <- function(self, bayesian = TRUE){
   spp_alpha <- names(self$data_list$X_proportions)[do.call("c", lapply(1:length(self$data_list$X_proportions), FUN = function(x){rep(x, ncol(self$data_list$X_proportions[[x]]))}))]
   alpha_names <- paste0(spp_alpha, "_", do.call("c", lapply(self$data_list$X_proportions, colnames)))
   pnames <- paste0(rep(species, each = nrow(est_pars$p_daily)), "_", rep(est_pars$p_daily$Date, each = length(species)))
-  dnames <- paste0(rep(species_N, each = nrow(est_pars$N_daily)), "_", rep(est_pars$N_daily$Date, each = length(species_N)))
+  dnames <- paste0(rep(species_N, each = nrow(est_pars$N_daily)), "_", rep(est_pars$N_daily$Date, length(species_N)))
 
   sum.out <- data.frame(parameter = gsub("\\[.*", "", colnames(output)),
     type = c(species, species, alpha_names, species, species, 1, names(est_pars$beta), names(est_pars$qinv), pnames, dnames),
