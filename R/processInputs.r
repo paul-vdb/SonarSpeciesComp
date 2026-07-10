@@ -220,7 +220,7 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
     },
     computeCredibleIntervals = function(bayesian = TRUE, control = list()){
       self$fit_info$warmup <- extractControls( control$warmup, 500 )  
-      self$fit_info <- nsim <- extractControls( control$nsim, 1000 )
+      self$fit_info$nsim <- extractControls( control$nsim, 1000 )
       run_full_model(self, bayesian)
     },
     #' @description Simulate the model for the counts on the 'est_date' and 'ndays' with parameter values equal to 'params_estimated' within the object.
