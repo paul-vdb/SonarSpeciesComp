@@ -99,7 +99,7 @@ make_negll <- function(self){
 
     REPORT(p_daily)
     REPORT(N_daily)    
-    if("largeresident" %in% species) objval <- objval - self$prior_distributions$dlargeresident(N_daily[,1])
+    # if("largeresident" %in% species) objval <- objval - self$prior_distributions$dlargeresident(N_daily[,1])
     
     ## Test fishery component:
     if(include_test_fishery){

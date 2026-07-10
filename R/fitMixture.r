@@ -114,7 +114,7 @@ fit_joint_model <- function(self){
     p_daily <- estimate_daily_proportions(p, pred_df = self$data_list$pred_df, species)
     N_daily <- estimate_daily_salmon(p_daily, total_salmon = self$data_list$total_salmon, species)  ## Combine adult chinook and remove smallresident fish.
     
-    if("largeresident" %in% species)  ll <- ll + self$prior_distributions$dlargeresident(N_daily[,1])
+    # if("largeresident" %in% species)  ll <- ll + self$prior_distributions$dlargeresident(N_daily[,1])
     
     ## Test fishery component:
     if(include_test_fishery){
@@ -191,7 +191,7 @@ fit_joint_model <- function(self){
       p_daily <- estimate_daily_proportions(p, self$data_list$pred_df, species)
       N_daily <- estimate_daily_salmon(p_daily, self$data_list$total_salmon, species)  ## Combine adult chinook and remove smallresident fish.
 
-      if("largeresident" %in% species) objval <- objval - self$prior_distributions$dlargeresident(N_daily[,1])
+      # if("largeresident" %in% species) objval <- objval - self$prior_distributions$dlargeresident(N_daily[,1])
       
       ## Test fishery component:
       if(include_test_fishery){

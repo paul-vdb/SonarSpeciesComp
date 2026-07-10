@@ -89,7 +89,7 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
       default_prior <- \(...){0}
       self$prior_distributions <- list(dlog_qinv = default_prior, dbeta = default_prior, dalpha_jackchinook = default_prior, 
                                        dlog_sigma = default_prior, dmu = default_prior, dlogit_delta_mu = default_prior, dlog_sigma0 = default_prior,
-                                       dsmallresident = default_prior, dlargeresident = default_prior)
+                                       dsmallresident = default_prior, dlargeresident = default_prior, dalpha = default_prior)
     },
     #' @description Update the R6 object with species names to fit in a model.
     #' @param species Character vector with options are "smallresident", "largeresident", "pink", "sockeye", "coho", "chum", "jackchinook", "adultchinook", "smalladultchinook", "largeadultchinook"
@@ -308,9 +308,10 @@ set_priors <- function(self, priors = list(), includeJacobian = TRUE){
   self$prior_distributions$dlogit_delta_mu <- addPrior(priors$delta_mu, logDetJac_logitInterval, includeJacobian & !is.null(priors$delta_mu))
   self$prior_distributions$dmu <- addPrior(priors$mu, NULL, FALSE)
   self$prior_distributions$dbeta <- addPrior(priors$beta, NULL, FALSE)
+  self$prior_distributions$dalpha <- addPrior(priors$alpha, NULL, FALSE)  
   self$prior_distributions$dalpha_jackchinook <- addPrior(priors$alpha_jackchinook, NULL, FALSE)
-  self$prior_distributions$dlargeresident <- addPrior(priors$N_largeresident, NULL, FALSE)
-  self$prior_distributions$dsmallresident <- addPrior(priors$N_smallresident, NULL, FALSE)
+  # self$prior_distributions$dlargeresident <- addPrior(priors$N_largeresident, NULL, FALSE)
+  # self$prior_distributions$dsmallresident <- addPrior(priors$N_smallresident, NULL, FALSE)
 }
 
 #' @export
