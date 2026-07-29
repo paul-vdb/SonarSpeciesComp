@@ -264,7 +264,9 @@ plot_prior <- function(self, parameter){
     facet_wrap(~facet_name) + 
     xlab(parameter) + 
     ylab("Prior Density")
-  if(all(names(self$params_estimated[[param]]) %in% spp)) plot_p <- plot_p + scale_colour_manual("Species", labels = speciesLabels(spp), values = speciesColours(spp))
+  labs <- speciesLabels(spp)
+  names(labs) <- spp
+  if(all(names(self$params_estimated[[param]]) %in% spp)) plot_p <- plot_p + scale_colour_manual("Species", labels = labs, values = speciesColours(spp))
   suppressWarnings(print(plot_p))
 }
 
