@@ -291,9 +291,9 @@ run_full_model <- function(self, bayesian = TRUE){
   alpha_names <- paste0(spp_alpha, "_", do.call("c", lapply(self$data_list$X_proportions, colnames)))
   pnames <- paste0(rep(species, each = nrow(est_pars$p_daily)), "_", rep(est_pars$p_daily$Date, each = length(species)))
   dnames <- paste0(rep(species_N, each = nrow(est_pars$N_daily)), "_", rep(est_pars$N_daily$Date, length(species_N)))
-
+  
   sum.out <- data.frame(parameter = gsub("\\[.*", "", colnames(output)),
-    type = c(species, species, alpha_names, species, species, 1, names(est_pars$beta), names(est_pars$qinv), pnames, dnames),
+    type = c(species, species, alpha_names, species, species, 1, 1:length(est_pars$beta), names(est_pars$qinv), pnames, dnames),
     param = colnames(output)
   )
   sum.out <- cbind(sum.out, "mean" = apply(output, 2, mean), "mode" = apply(output, 2, findGlobalMode), "sd" = apply(output, 2, sd), t(apply(output, 2, quantile, c(0.025, 0.5, 0.975))))
