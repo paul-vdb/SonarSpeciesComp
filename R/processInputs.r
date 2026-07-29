@@ -614,7 +614,7 @@ set_daily_data <- function(self){
   if(any(duplicated(salmon_counts$Date))){ self$data_list$total_salmon <- salmon_counts |> aggregate(count~Date, sum)
   }else{ self$data_list$total_salmon <- salmon_counts }
   
-  if(!all(dates_ %in% self$data_list$total_salmon)){stop("Must provide estimates of total salmon for each day of data.")}
+  if(!all(dates_ %in% self$data_list$total_salmon$Date)){stop("Must provide estimates of total salmon for each day of data.")}
 }
 
 #' Set Model Proportions
