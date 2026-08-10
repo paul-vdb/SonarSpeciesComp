@@ -554,7 +554,7 @@ process_mission_salmon_passage = function(self, salmon_passage_table){
   names(offshore)[2] <- "offshore"
   self$salmon_counts <- total_salmon |> merge(offshore)
   self$salmon_counts <- self$salmon_counts |> within(nearshore <- count - offshore)
-  if(any(duplicated(self$salmon_counts$Date))){ self$salmon_counts <- self$salmon_counts |> aggregate(cbind(nearshore, offshore, count) ~ Date, sum)
+  if(any(duplicated(self$salmon_counts$Date))) self$salmon_counts <- self$salmon_counts |> aggregate(cbind(nearshore, offshore, count) ~ Date, sum)
 }
 
 #' Set Daily Data
