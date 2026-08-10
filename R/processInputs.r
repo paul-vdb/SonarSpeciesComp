@@ -548,7 +548,13 @@ process_mission_salmon_passage = function(self, salmon_passage_table){
     }))
   long_salmon <- long_salmon |> subset(!is.na(count))
   long_salmon <- long_salmon |> merge(namedf)
-  self$salmon_counts <- long_salmon
+  salmon_counts <- long_salmon |> subset(!grepl("AIM", grp))  
+  total_salmon <- salmon_counts |> aggregate(count~Date, sum)
+  offshore <- salmon_counts |> subset(SonarBank == "Offshore") |> subset(select = c("Date", "count"))
+  names(offshore)[2] <- "offshore"
+  self$salmon_counts <- total_salmon |> merge(offshore)
+  self$salmon_counts <- self$salmon_counts |> within(nearshore <- count - offshore)
+  if(any(duplicated(self$salmon_counts$Date))){ self$data_list$total_salmon <- self$salmon_counts |> aggregate(cbind(nearshore, offshore, count) ~ Date, sum)
 }
 
 #' Set Daily Data
@@ -613,10 +619,7 @@ set_daily_data <- function(self){
   self$data_list$days <- dates_
 
   ## Estimate total salmon:
-  salmon_counts <- self$salmon_counts |> subset(Date %in% dates_)
-  if(self$data_info$site == "Mission" & "grp" %in% names(salmon_counts)) salmon_counts <- salmon_counts |> subset(!grepl("AIM", grp))
-  if(any(duplicated(salmon_counts$Date))){ self$data_list$total_salmon <- salmon_counts |> aggregate(count~Date, sum)
-  }else{ self$data_list$total_salmon <- salmon_counts }
+  self$data_list$total_salmon <- self$salmon_counts |> subset(Date %in% dates_)
   
   if(!all(dates_ %in% self$data_list$total_salmon$Date)){stop("Must provide estimates of total salmon for each day of data.")}
 }
