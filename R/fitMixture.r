@@ -50,6 +50,8 @@ fit_joint_model <- function(self){
   nalpha <- length(c(pars_init$alpha, pars_fixed$alpha))
   nalpha_jackchinook <- length(c(pars_init$alpha_jackchinook, pars_fixed$alpha_jackchinook))
   
+  offshore_largeresidents <- self$fit_info$offshore_largeresidents
+  
   ## pars_outer <- pars_init
   EMstep <- function(pars_outer){
     # Necessary in packages
@@ -112,7 +114,7 @@ fit_joint_model <- function(self){
 
     ## Estimate N:
     p_daily <- estimate_daily_proportions(p, pred_df = self$data_list$pred_df, species)
-    N_daily <- estimate_daily_salmon(p_daily, total_salmon = self$data_list$total_salmon, species)  ## Combine adult chinook and remove smallresident fish.
+    N_daily <- estimate_daily_salmon(p_daily, total_salmon = self$data_list$total_salmon, species, offshore_largeresidents)  ## Combine adult chinook and remove smallresident fish.
     
     # if("largeresident" %in% species)  ll <- ll + self$prior_distributions$dlargeresident(N_daily[,1])
     
@@ -189,7 +191,7 @@ fit_joint_model <- function(self){
       }
       ## Estimate N:
       p_daily <- estimate_daily_proportions(p, self$data_list$pred_df, species)
-      N_daily <- estimate_daily_salmon(p_daily, self$data_list$total_salmon, species)  ## Combine adult chinook and remove smallresident fish.
+      N_daily <- estimate_daily_salmon(p_daily, self$data_list$total_salmon, species, offshore_largeresidents)  ## Combine adult chinook and remove smallresident fish.
 
       # if("largeresident" %in% species) objval <- objval - self$prior_distributions$dlargeresident(N_daily[,1])
       
@@ -237,7 +239,7 @@ fit_joint_model <- function(self){
     p_adultchinook = pars_fixed$proportion_adultchinook, Xprop = self$data_list$X_proportions, 
     K0 = nother, K = nspp)
   p_daily <- estimate_daily_proportions(p, self$data_list$pred_df, species)
-  N_daily <- estimate_daily_salmon(p_daily, self$data_list$total_salmon, species)  ## Combine adult chinook and remove smallresident fish.
+  N_daily <- estimate_daily_salmon(p_daily, self$data_list$total_salmon, species, offshore_largeresidents)  ## Combine adult chinook and remove smallresident fish.
   N_daily <- data.frame(N_daily)
   names(N_daily) <- self$species_info$species_predict
   estimates$N_daily <- cbind(Date = self$data_list$days, N_daily)

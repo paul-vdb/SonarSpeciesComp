@@ -87,6 +87,9 @@ calcProportions <- function(alpha, alpha_jackchinook, p_adultchinook, Xprop, K0,
 #'
 #' @export
 dlognorm_real <- function(x, mean_real, sd_real, log = FALSE){
+  "c" <- ADoverload("c")
+  "[<-" <- ADoverload("[<-")
+
   sigma <- log(1+(sd_real/mean_real)^2)
   mu <- log(mean_real^2/sqrt(mean_real + sd_real^2))
   if(log) dnorm(log(x), mu, sigma, TRUE) - log(x)

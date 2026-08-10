@@ -140,10 +140,13 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
         if(!is.null(salmon_passage_table)){
           if(any("TotalSalmon Official" == colnames(salmon_passage_table))) {
             salmon_passage_table$Date <- as.Date(salmon_passage_table$MissionDate)
-            suppressWarnings(newtab <- data.frame(Date = salmon_passage_table$Date, count = as.numeric(salmon_passage_table$`TotalSalmon Official`)) |> subset(!is.na(count)))
+            suppressWarnings(newtab <- data.frame(Date = salmon_passage_table$Date, count = as.numeric(salmon_passage_table$`TotalSalmon Official`), proportion_offshore = salmon_passage_table$`Mobile Flux Proportion`) |> subset(!is.na(count)))
             self$salmon_counts <- newtab
+            self$salmon_counts <- self$salmon_counts |> within(nearshore <- count*(1-proportion_offshore))
+            self$salmon_counts <- self$salmon_counts |> within(offshore <- count*proportion_offshore)
           }else{ 
             process_mission_salmon_passage(self, salmon_passage_table)
+            ## *** update for nearshore...
           }
         }
       }
@@ -209,6 +212,7 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
       self$fit_info$include_test_fishery <- extractControls(control$include_test_fishery, self$fit_info$include_test_fishery)
       self$data_info$test_fishery_weights <- extractControls(control$test_fishery_weights, self$data_info$test_fishery_weights)
       self$fit_info$adjust_lengths <- extractControls(control$adjust_lengths, self$fit_info$adjust_lengths)
+      self$fit_info$offshore_largeresidents <- extractControls(control$offshore_largeresidents, TRUE)
 
       est_pars <- fit_joint_model(self)
       

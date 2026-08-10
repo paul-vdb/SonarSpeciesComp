@@ -56,6 +56,7 @@ An R6 base class that is used to step through all the different setups and steps
 \item \href{#method-SpeciesCompModel-setSpeciesLengths}{\code{speciesCompModel$setSpeciesLengths()}}
 \item \href{#method-SpeciesCompModel-setModelParameters}{\code{speciesCompModel$setModelParameters()}}
 \item \href{#method-SpeciesCompModel-fitModel}{\code{speciesCompModel$fitModel()}}
+\item \href{#method-SpeciesCompModel-computeCredibleIntervals}{\code{speciesCompModel$computeCredibleIntervals()}}
 \item \href{#method-SpeciesCompModel-simulate}{\code{speciesCompModel$simulate()}}
 \item \href{#method-SpeciesCompModel-setPriors}{\code{speciesCompModel$setPriors()}}
 \item \href{#method-SpeciesCompModel-plotMix}{\code{speciesCompModel$plotMix()}}
@@ -279,7 +280,7 @@ Set the model parameters before fitting with EM algorithm, including which value
 \subsection{Method \code{fitModel()}}{
 EM algorithm for fitting the joint species composition model.
 \subsection{Usage}{
-\if{html}{\out{<div class="r">}}\preformatted{speciesCompModel$fitModel(control = list())}\if{html}{\out{</div>}}
+\if{html}{\out{<div class="r">}}\preformatted{speciesCompModel$fitModel(control = list(), include_uncertainty = FALSE)}\if{html}{\out{</div>}}
 }
 
 \subsection{Arguments}{
@@ -292,6 +293,15 @@ EM algorithm for fitting the joint species composition model.
 \subsection{Returns}{
 List of parameter estimates, which is also stored in the \code{params_estimated} field of the R6 object.
 }
+}
+\if{html}{\out{<hr>}}
+\if{html}{\out{<a id="method-SpeciesCompModel-computeCredibleIntervals"></a>}}
+\if{latex}{\out{\hypertarget{method-SpeciesCompModel-computeCredibleIntervals}{}}}
+\subsection{Method \code{computeCredibleIntervals()}}{
+\subsection{Usage}{
+\if{html}{\out{<div class="r">}}\preformatted{speciesCompModel$computeCredibleIntervals(bayesian = TRUE, control = list())}\if{html}{\out{</div>}}
+}
+
 }
 \if{html}{\out{<hr>}}
 \if{html}{\out{<a id="method-SpeciesCompModel-simulate"></a>}}

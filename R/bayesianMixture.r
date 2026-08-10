@@ -32,6 +32,7 @@ make_negll <- function(self){
   X_test_fishery <- self$data_list$X_test_fishery
   names_tf <- colnames(X_test_fishery)
   nobs <- nrow(self$data_list$length_data)
+  offshore_largeresidents <- self$fit_info$offshore_largeresidents
 
   negll <- function(pars_inner){
 
@@ -95,7 +96,7 @@ make_negll <- function(self){
     }
     ## Estimate N:
     p_daily <- estimate_daily_proportions(p, self$data_list$pred_df, species)
-    N_daily <- estimate_daily_salmon(p_daily, self$data_list$total_salmon, species)  ## Combine adult chinook and remove smallresident fish.
+    N_daily <- estimate_daily_salmon(p_daily, self$data_list$total_salmon, species, offshore_largeresidents)  ## Combine adult chinook and remove smallresident fish.
 
     REPORT(p_daily)
     REPORT(N_daily)    
@@ -132,6 +133,7 @@ compute_param_values <- function(self, post, ad_obj){
   nspp <- length(species)
   nother <- self$species_info$nother
   proportion_adultchinook <- self$params_fixed[["proportion_adultchinook"]]  
+  offshore_largeresidents <- self$fit_info$offshore_largeresidents
 
   est_pars <- self$params_estimated
 
@@ -171,7 +173,7 @@ compute_param_values <- function(self, post, ad_obj){
       p_adultchinook = proportion_adultchinook, Xprop = self$data_list$X_proportions, 
       K0 = nother, K = nspp)
     p_daily <- estimate_daily_proportions(p, self$data_list$pred_df, species)
-    N_daily <- estimate_daily_salmon(p_daily, self$data_list$total_salmon, species)  ## Combine adult chinook and remove smallresident fish.
+    N_daily <- estimate_daily_salmon(p_daily, self$data_list$total_salmon, species, offshore_largeresidents)  ## Combine adult chinook and remove smallresident fish.
     output[i, Nnames] <- c(N_daily)
     output[i, Pnames] <- c(p_daily)
   }

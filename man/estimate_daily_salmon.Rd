@@ -4,7 +4,12 @@
 \alias{estimate_daily_salmon}
 \title{Estimate daily salmon}
 \usage{
-estimate_daily_salmon(p_daily, total_salmon, species)
+estimate_daily_salmon(
+  p_daily,
+  total_salmon,
+  species,
+  offshore_largeresidents = TRUE
+)
 }
 \arguments{
 \item{p_daily}{Proportion of fish each day, estimated by species composition model.}
@@ -12,6 +17,8 @@ estimate_daily_salmon(p_daily, total_salmon, species)
 \item{total_salmon}{Daily salmon escapement counted by the hydroacoustic program.}
 
 \item{species}{vector of standard deviations for each componenet (e.g. species).}
+
+\item{offshore_largeresidents}{If TRUE then near shore and offshore have same proportion of large residents. If false then offshore has no large residents.}
 }
 \value{
 Matrix for each species, excluding small resident fish, with an additional column added that

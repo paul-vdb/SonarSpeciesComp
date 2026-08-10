@@ -339,6 +339,7 @@ log_sum_exp <- function(x){
 #' @param p_daily Proportion of fish each day, estimated by species composition model.
 #' @param total_salmon Daily salmon escapement counted by the hydroacoustic program.
 #' @param species vector of standard deviations for each componenet (e.g. species).
+#' @param offshore_largeresidents If TRUE then near shore and offshore have same proportion of large residents. If false then offshore has no large residents.
 #'
 #' @details If small resident are included, they are removed when estimating total daily salmon.
 #' Large resident fish are included (> 35 cm for updated Mission protocols).
@@ -347,7 +348,7 @@ log_sum_exp <- function(x){
 #' combines all Chinook salmon.
 #' 
 #' @export
-estimate_daily_salmon = function(p_daily, total_salmon, species){
+estimate_daily_salmon = function(p_daily, total_salmon, species, offshore_largeresidents = TRUE){
   "c" <- ADoverload("c")
   "[<-" <- ADoverload("[<-")
 
@@ -365,7 +366,12 @@ estimate_daily_salmon = function(p_daily, total_salmon, species){
   }
   N_salmon <- matrix(0, nrow = nrow(p_daily), ncol = ncol(p_daily))
   for( d in 1:nrow(p_daily) ){
-    N_salmon[d, ] <- as.numeric(p_daily[d,])*total_salmon[d, "count"]/correction[d]
+    if(offshore_largeresidents | !"largeresident" %in% species){ 
+      N_salmon[d, ] <- as.numeric(p_daily[d,])*total_salmon[d, "count"]/correction[d]
+    }else{
+      N_salmon[d, ] <- as.numeric(p_daily[d,])*total_salmon[d, "nearshore"]/correction[d]
+      N_salmon[d, -1] <- N_salmon[d, -1, drop = FALSE] + as.numeric(p_daily[d,-1, drop = FALSE]/p_daily[d,1])*total_salmon[d, "offshore"]/correction[d]
+    }
   }
   N_salmon <- cbind(N_salmon, N_salmon[, ncol(N_salmon)-1] + N_salmon[, ncol(N_salmon)])
   return(N_salmon)
