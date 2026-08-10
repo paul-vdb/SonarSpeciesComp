@@ -370,7 +370,7 @@ estimate_daily_salmon = function(p_daily, total_salmon, species, offshore_larger
       N_salmon[d, ] <- as.numeric(p_daily[d,])*total_salmon[d, "count"]/correction[d]
     }else{
       N_salmon[d, ] <- as.numeric(p_daily[d,])*total_salmon[d, "nearshore"]/correction[d]
-      N_salmon[d, -1] <- N_salmon[d, -1, drop = FALSE] + as.numeric(p_daily[d,-1, drop = FALSE]/p_daily[d,1])*total_salmon[d, "offshore"]/correction[d]
+      N_salmon[d, -1] <- N_salmon[d, -1, drop = FALSE] + as.numeric(p_daily[d,-1, drop = FALSE]/sum(p_daily[d,-1]))*total_salmon[d, "offshore"]/correction[d]
     }
   }
   N_salmon <- cbind(N_salmon, N_salmon[, ncol(N_salmon)-1] + N_salmon[, ncol(N_salmon)])
