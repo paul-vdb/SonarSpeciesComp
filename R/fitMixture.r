@@ -153,7 +153,7 @@ fit_joint_model <- function(self){
 
       ## 2) Length standard deviation
       log_sigma <- joinPars(pars_inner$log_sigma, pars_fixed$log_sigma, species)  ## *** data input
-      logit_delta_sd <- joinPars(pars_outer$logit_delta_sd, pars_fixed$logit_delta_sd, species) 
+      logit_delta_sd <- joinPars(pars_inner$logit_delta_sd, pars_fixed$logit_delta_sd, species) 
       delta_sd <- ilogitInterval(logit_delta_sd, lower_delta_sd, upper_delta_sd)
       
       ## length measurement error:
@@ -243,7 +243,7 @@ fit_joint_model <- function(self){
   estimates$delta_mu <- joinPars(fn_null(ilogitInterval, x=pars_est$logit_delta_mu, lower = lower_delta_mu, upper = upper_delta_mu), fn_null(ilogitInterval, x=pars_fixed$logit_delta_mu, lower = lower_delta_mu, upper = upper_delta_mu), species)
   estimates$delta_sd <- joinPars(fn_null(ilogitInterval, x=pars_est$logit_delta_sd, lower = lower_delta_sd, upper = upper_delta_sd), fn_null(ilogitInterval, x=pars_fixed$logit_delta_sd, lower = lower_delta_sd, upper = upper_delta_sd), species)
   estimates$mu_adjusted <- estimates$mu + estimates$delta_mu
-  estimates$sd_adjusted <- estimates$sd + estimates$delta_sd
+  estimates$sigma_adjusted <- estimates$sigma + estimates$delta_sd
   estimates$sigma0 <- joinPars(fn_null(exp, x=pars_est$log_sigma0), fn_null(exp, x=pars_fixed$log_sigma0), 1)
   estimates$beta <- joinPars(pars_est$beta, pars_fixed$beta, 1:nbeta)
 
