@@ -26,7 +26,7 @@ calcPostProb <- function(x, mu, sigma, prob, wgts = NULL){
   
   for( i in 1:n ) {
     if(is.matrix(prob)){ logpostp <- log(prob[i,]) + dnorm(x[i], mu, sigma, log =TRUE)
-    }else{ logpostp <- log(prob) + dnorm(x[i], mu, sigma, log =TRUE) }
+    }else{ logpostp <- log(prob) + dnorm(x[i], mu, sigma, log =TRUE) - pnorm(35, mu, sigma, log = TRUE) }
     logrowsum <- log_sum_exp(logpostp)
     postp[i,] <- exp(logpostp - logrowsum)
     ll <- ll + logrowsum*wgts[i]

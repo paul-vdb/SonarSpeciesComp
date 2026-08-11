@@ -61,7 +61,6 @@ make_negll <- function(self){
     sigma <- exp(log_sigma) + delta_sd
     sigma <- sqrt(sigma^2 + exp(2*log_sigma0))
     
-    
     ## 3) Catchability
     log_qinv <- pars_inner$log_qinv
     qinv <- exp(log_qinv)

@@ -198,7 +198,7 @@ fit_joint_model <- function(self){
 
       ## Prior jack chinook based on overal proportion.
       for( k in 1:nspp ){
-        objval <- objval - sum(wgts*post_prob[,k]*(logpobs[,k] + dnorm(L, mu[k], sigma[k], log = TRUE)))
+        objval <- objval - sum(wgts*post_prob[,k]*(logpobs[,k] + dnorm(L, mu[k], sigma[k], log = TRUE) - pnorm(35, mu[k], sigma[k], log = TRUE)))
       }
       ## Estimate N:
       p_daily <- estimate_daily_proportions(p, self$data_list$pred_df, species)
