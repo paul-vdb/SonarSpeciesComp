@@ -88,7 +88,8 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
       self$default_parameters <- default_params()
       default_prior <- \(...){0}
       self$prior_distributions <- list(dlog_qinv = default_prior, dbeta = default_prior, dalpha_jackchinook = default_prior, 
-                                       dlog_sigma = default_prior, dmu = default_prior, dlogit_delta_mu = default_prior, dlog_sigma0 = default_prior,
+                                       dlog_sigma = default_prior, dmu = default_prior, dlogit_delta_mu = default_prior, 
+                                       dlogit_delta_sd = default_prior, dlog_sigma0 = default_prior,
                                        dsmallresident = default_prior, dlargeresident = default_prior, dalpha = default_prior)
     },
     #' @description Update the R6 object with species names to fit in a model.
@@ -172,6 +173,7 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
     #' @param date Date (optional) to change analysis date.
     #' @param ndays Number of days to combine (optional).
     #' @param delta_mu_bounds Matrix or vector to schoose how much the mean length of each species can vary. Matrix must have nrows of number of species. Otherwise a vector is length 2 and declares lower and upper for all.
+    #' @param delta_sd_bounds Matrix or vector to schoose how much the standard deviation of length of each species can vary. Matrix must have nrows of number of species. Otherwise a vector is length 2 and declares lower and upper for all.
     #' @param expansion_formula Formula to set the test fishery expansion line relationships (defualt = ~ species:fishery).
     #' @param test_fishery_spp Vector of joined species and test fishery names to used e.g. ("sockeye_whonnock", "adultchinook_whonnock", "chinook_albion").
     setModelParameters = function(fixed_parameters = c("mu", "sigma", "proportion_jackchinook"),
@@ -179,6 +181,7 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
                                   formula_proportions = list(),
                                   formula_lengths = ~ beamWidth.cm,
                                   date = NULL, ndays = NULL, delta_mu_bounds = NULL,
+                                  delta_sd_bounds = NULL,
                                   expansion_formula = NULL,
                                   test_fishery_spp = NULL){
       ## If user wants to update the date and species, they can do that here:
@@ -202,7 +205,7 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
 
       set_length_adjustment(self, formula_lengths)
       set_model_proportions(self, formula_proportions)
-      set_model_parameters(self, fixed_parameters, fixed_values, initial_values, delta_mu_bounds)      
+      set_model_parameters(self, fixed_parameters, fixed_values, initial_values, delta_mu_bounds, delta_sd_bounds)      
     },
     #' @description EM algorithm for fitting the joint species composition model.
     #' @param control List containing \code{controlOptimization} arguments as well as '$include_test_fishery' - logical to include or exclude test fishery catch information in the model, '$adjust_lengths' logical include beam spreading adjusment, and '$test_fishery_weights' the model weights for the test fishery.
@@ -262,6 +265,7 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
     priorCheck = function(parameter){
       if(parameter %in% c("sigma", "mu", "sigma0", "qinv")) parameter <- paste0("log_", parameter)
       if(parameter == "delta_mu") parameter <- paste0("logit_delta_mu")
+      if(parameter == "delta_sd") parameter <- paste0("logit_delta_sd")      
       plot_prior(self, parameter)
     }
   )
@@ -281,6 +285,7 @@ default_params <- function(){
   if(is.null(.default_parameters$sigma)) .default_parameters$sigma <- c("smallresident" = 2.5, "largeresident" = 2.5, "pink" = 4, "sockeye" = 3.5, "coho" = 3.5, "chum" = 3, "jackchinook" = 2.5, "smalladultchinook" = 4, "largeadultchinook" = 6, "adultchinook" = 7)
   if(is.null(.default_parameters$sigma0)) .default_parameters$sigma0 <- 4.5
   if(is.null(.default_parameters$delta_mu)) .default_parameters$delta_mu <- c("smallresident" = 0, "largeresident" = 0, "pink" = 0, "sockeye" = 0, "coho" = 0, "chum" = 0, "jackchinook" = 0, "smalladultchinook" = 0, "largeadultchinook" = 0, "adultchinook" = 0)
+  if(is.null(.default_parameters$delta_sd)) .default_parameters$delta_sd <- c("smallresident" = 0, "largeresident" = 0, "pink" = 0, "sockeye" = 0, "coho" = 0, "chum" = 0, "jackchinook" = 0, "smalladultchinook" = 0, "largeadultchinook" = 0, "adultchinook" = 0)
   if(is.null(.default_parameters$proportion_adultchinook)) .default_parameters$proportion_adultchinook <- c("smalladultchinook" = 0.2, "largeadultchinook" = 0.8, "adultchinook" = 1)
   .default_parameters
 }
@@ -310,6 +315,8 @@ set_priors <- function(self, priors = list(), includeJacobian = TRUE){
   self$prior_distributions$dlog_sigma <- addPrior(priors$sigma, \(x){log(abs(x))}, includeJacobian & !is.null(priors$sigma))
   self$prior_distributions$dlog_sigma0 <- addPrior(priors$sigma0,\(x){log(abs(x))}, includeJacobian & !is.null(priors$sigma0))
   self$prior_distributions$dlogit_delta_mu <- addPrior(priors$delta_mu, logDetJac_logitInterval, includeJacobian & !is.null(priors$delta_mu))
+  self$prior_distributions$dlogit_delta_sd <- addPrior(priors$delta_sd, logDetJac_logitInterval, includeJacobian & !is.null(priors$delta_sd))
+  
   self$prior_distributions$dmu <- addPrior(priors$mu, NULL, FALSE)
   self$prior_distributions$dbeta <- addPrior(priors$beta, NULL, FALSE)
   self$prior_distributions$dalpha <- addPrior(priors$alpha, NULL, FALSE)  
@@ -908,6 +915,7 @@ fitChinookLengths <- function(x, chinook_names, mu_chin, sigma_chin, proportions
 #' @param fixed_values List with names equal to parameters and named vectors providing fixed values.
 #' @param initial_values List with names equal to parameters and named vectors providing initial values.
 #' @param delta_mu_bounds Matrix (first column lower bound, second upper bound) or vector (lower bound, upper bound) (Defaults to (-1,1)).
+#' @param delta_sd_bounds Matrix (first column lower bound, second upper bound) or vector (lower bound, upper bound) (Defaults to (-0.5,0.5)).
 #'
 #' @details Set initial values and fixed values for running the species composition model. Intended to be updated before \code{self$fitModel}.
 #'
@@ -916,7 +924,8 @@ fitChinookLengths <- function(x, chinook_names, mu_chin, sigma_chin, proportions
 #' @export
 set_model_parameters <- function(self, fixed_parameters = c("mu", "sigma", "proportion_jackchinook"),
                                   fixed_values = list(), initial_values = list(),
-                                  delta_mu_bounds = NULL){
+                                  delta_mu_bounds = NULL,
+                                  delta_sd_bounds = NULL){
   ## Set which counts apply to the test fishery analysis:
   ## *****
   ## self$analysisData$predDF$SalmonCountTF <- ifelse(self$analysisData$predDF$SonarBin %in% testFisheryBins, self$analysisData$predDF$SalmonCount, 0)
@@ -936,6 +945,11 @@ set_model_parameters <- function(self, fixed_parameters = c("mu", "sigma", "prop
   if(length(delta_mu_bounds$lower) == 1) delta_mu_limits = cbind(rep(delta_mu_bounds$lower[1], self$species_info$nspecies), rep(delta_mu_bounds$upper[1], self$species_info$nspecies))
   self$data_list$lower_delta_mu <- delta_mu_limits[,1]
   self$data_list$upper_delta_mu <- delta_mu_limits[,2]
+
+  if(is.null(delta_sd_bounds)) delta_sd_limits = cbind(rep(-0.5, self$species_info$nspecies), rep(0.5, self$species_info$nspecies))
+  if(length(delta_sd_bounds$lower) == 1) delta_sd_limits = cbind(rep(delta_sd_bounds$lower[1], self$species_info$nspecies), rep(delta_sd_bounds$upper[1], self$species_info$nspecies))
+  self$data_list$lower_delta_sd <- delta_sd_limits[,1]
+  self$data_list$upper_delta_sd <- delta_sd_limits[,2]
 
   ## Set log catchability:
   tf_names <- colnames(self$data_list$X_test_fishery)
@@ -959,6 +973,9 @@ set_model_parameters <- function(self, fixed_parameters = c("mu", "sigma", "prop
   ## Set delta_mu
   extractParams(self, initial_values[["delta_mu"]], fixed_values[["delta_mu"]], self$default_parameters$delta_mu[self$species_info$species], name = "logit_delta_mu", 
                 transform = logitInterval, lower = delta_mu_limits[,1], upper = delta_mu_limits[,2])
+  ## Set delta_sd
+  extractParams(self, initial_values[["delta_sd"]], fixed_values[["delta_sd"]], self$default_parameters$delta_sd[self$species_info$species], name = "logit_delta_sd", 
+                transform = logitInterval, lower = delta_sd_limits[,1], upper = delta_sd_limits[,2])
   ## Set sigma0
   extractParams(self, initial_values[["sigma0"]], fixed_values[["sigma0"]], self$default_parameters[["sigma0"]], name = "log_sigma0", transform = log)
 

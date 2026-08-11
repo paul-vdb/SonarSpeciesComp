@@ -75,6 +75,27 @@ calcProportions <- function(alpha, alpha_jackchinook, p_adultchinook, Xprop, K0,
   return(p)
 }
 
+#' Logitnormal interval distribution
+#'
+#' @param x value on the real scale.
+#' @param mean Mean on logit interval scale.
+#' @param sd Standard deviation on logit interval scale.
+#' @param log Logical, return log density (TRUE) or on real scale (FALSE).
+#'
+#' @return Density of log normal distribution for value x.
+#'
+#' @export
+dlogitnorm_interval <- function(x, mean = 0, sd = 1, lower = 0, upper = 1, log = FALSE){
+  "c" <- ADoverload("c")
+  "[<-" <- ADoverload("[<-")
+
+  delta <- upper - lower
+  p <- (x-lower)/delta
+  z <- log(p/(1-p))
+  
+  if(log) dnorm(z, mean, sd, TRUE) + log(-delta/((lower-x)*(upper-x)))
+  else dnorm(z, mean, sd, FALSE)*(-delta/((lower-x)*(upper-x)))
+}
 
 #' Lognormal distribution (mean and sd on real scale)
 #'

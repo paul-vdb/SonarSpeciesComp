@@ -30,8 +30,12 @@ fit_joint_model <- function(self){
   ## Scale for natural comparison with test fishery.
   wgts <- wgts/max(wgts)  
   obs_lengths <- self$data_list$length_data$L.cm.adj
+
   lower_delta_mu <- self$data_list$lower_delta_mu
   upper_delta_mu <- self$data_list$upper_delta_mu
+  lower_delta_sd <- self$data_list$lower_delta_sd
+  upper_delta_sd <- self$data_list$upper_delta_sd
+
   nbeta <- ncol(self$data_list$X_length)
   test_fishery_catch <- self$data_list$test_fishery_catch
   test_fishery_weights <- self$data_info$test_fishery_weights
@@ -70,11 +74,15 @@ fit_joint_model <- function(self){
 
     ## 2) Length standard deviation
     log_sigma <- joinPars(pars_outer$log_sigma, pars_fixed$log_sigma, species)  ## *** data input
+    logit_delta_sd <- joinPars(pars_outer$logit_delta_sd, pars_fixed$logit_delta_sd, species) 
+    delta_sd <- ilogitInterval(logit_delta_sd, lower_delta_sd, upper_delta_sd)
+    
     ## length measurement error:
     log_sigma0 <- joinPars(pars_outer$log_sigma0, pars_fixed$log_sigma0, 1)
     ## Observed standard deviation
     sigma <- sqrt(exp(2*log_sigma) + exp(2*log_sigma0))
-
+    sigma <- sigma + delta_sd 
+    
     ## 3) Catchability
     log_qinv <- joinPars(pars_outer$log_qinv, pars_fixed$log_qinv, names_tf)  ## *** data input
     qinv <- exp(X_test_fishery %*% log_qinv)[,1]
@@ -88,8 +96,10 @@ fit_joint_model <- function(self){
     
     ## Prior Distributions:
     ll <- ll + self$prior_distributions$dlog_qinv(exp(log_qinv)) + self$prior_distributions$dbeta(beta) + self$prior_distributions$dalpha_jackchinook(alpha_jackchinook) +
-          self$prior_distributions$dlog_sigma(exp(log_sigma)) + self$prior_distributions$dmu(mu) + self$prior_distributions$dlogit_delta_mu(delta_mu, lower = lower_delta_mu, upper = upper_delta_mu) +
-          self$prior_distributions$dlog_sigma0(exp(log_sigma0)) - self$prior_distributions$dalpha(alpha)
+          self$prior_distributions$dlog_sigma(exp(log_sigma)) + self$prior_distributions$dmu(mu) + 
+          self$prior_distributions$dlogit_delta_mu(delta_mu, lower = lower_delta_mu, upper = upper_delta_mu) +
+          self$prior_distributions$dlogit_delta_sd(delta_sd, lower = lower_delta_sd, upper = upper_delta_sd) +
+          self$prior_distributions$dlog_sigma0(exp(log_sigma0)) + self$prior_distributions$dalpha(alpha)
 
     ## Set up proportions. alpha parameter for predicting proportions. 
     ## Xalpha is a list of design matrices for each species.
@@ -143,10 +153,14 @@ fit_joint_model <- function(self){
 
       ## 2) Length standard deviation
       log_sigma <- joinPars(pars_inner$log_sigma, pars_fixed$log_sigma, species)  ## *** data input
+      logit_delta_sd <- joinPars(pars_outer$logit_delta_sd, pars_fixed$logit_delta_sd, species) 
+      delta_sd <- ilogitInterval(logit_delta_sd, lower_delta_sd, upper_delta_sd)
+      
       ## length measurement error:
       log_sigma0 <- joinPars(pars_inner$log_sigma0, pars_fixed$log_sigma0, 1)
       ## Observed standard deviation
       sigma <- sqrt(exp(2*log_sigma) + exp(2*log_sigma0))
+      sigma <- sigma + delta_sd
 
       ## 3) Catchability
       log_qinv <- joinPars(pars_inner$log_qinv, pars_fixed$log_qinv, names_tf) 
@@ -163,7 +177,9 @@ fit_joint_model <- function(self){
       objval <- 0
       ## Prior Distributions:
       objval <- objval - self$prior_distributions$dlog_qinv(exp(log_qinv)) - self$prior_distributions$dbeta(beta) - self$prior_distributions$dalpha_jackchinook(alpha_jackchinook) - 
-          self$prior_distributions$dlog_sigma(exp(log_sigma)) - self$prior_distributions$dmu(mu) - self$prior_distributions$dlogit_delta_mu(delta_mu, lower = lower_delta_mu, upper = upper_delta_mu) - 
+          self$prior_distributions$dlog_sigma(exp(log_sigma)) - self$prior_distributions$dmu(mu) - 
+          self$prior_distributions$dlogit_delta_mu(delta_mu, lower = lower_delta_mu, upper = upper_delta_mu) - 
+          self$prior_distributions$dlogit_delta_sd(delta_sd, lower = lower_delta_sd, upper = upper_delta_sd) -
           self$prior_distributions$dlog_sigma0(exp(log_sigma0)) - self$prior_distributions$dalpha(alpha)
             
       ## Set up proportions. alpha parameter for predicting proportions. 
@@ -181,11 +197,6 @@ fit_joint_model <- function(self){
       logpobs <- log(p[self$data_list$length_data$grpIndex,])
 
       ## Prior jack chinook based on overal proportion.
-      # objval <- objval - dbeta(Njc/(Nkc+Njc), 10, 500, log = TRUE) 
-      
-      ## Prior/penalty terms: Probably should do some sort of transformation:
-      # objval <- objval - dprior(sigma = exp(logsigma), sigmaChin = exp(logsigmaChin), sigma0 = exp(logsigma0), mu = mu, muChin = muChin, 
-                      # beta = beta, q = exp(logq), alpha, alphaJackChinook)
       for( k in 1:nspp ){
         objval <- objval - sum(wgts*post_prob[,k]*(logpobs[,k] + dnorm(L, mu[k], sigma[k], log = TRUE)))
       }
@@ -230,7 +241,9 @@ fit_joint_model <- function(self){
   estimates$alpha_jackchinook <- joinPars(pars_est$alpha_jackchinook, pars_fixed$alpha_jackchinook, 1:nalpha_jackchinook)
   estimates$qinv <- joinPars(fn_null(exp, x = pars_est$log_qinv), fn_null(exp, x = pars_fixed$log_qinv), names_tf)
   estimates$delta_mu <- joinPars(fn_null(ilogitInterval, x=pars_est$logit_delta_mu, lower = lower_delta_mu, upper = upper_delta_mu), fn_null(ilogitInterval, x=pars_fixed$logit_delta_mu, lower = lower_delta_mu, upper = upper_delta_mu), species)
+  estimates$delta_sd <- joinPars(fn_null(ilogitInterval, x=pars_est$logit_delta_sd, lower = lower_delta_sd, upper = upper_delta_sd), fn_null(ilogitInterval, x=pars_fixed$logit_delta_sd, lower = lower_delta_sd, upper = upper_delta_sd), species)
   estimates$mu_adjusted <- estimates$mu + estimates$delta_mu
+  estimates$sd_adjusted <- estimates$sd + estimates$delta_sd
   estimates$sigma0 <- joinPars(fn_null(exp, x=pars_est$log_sigma0), fn_null(exp, x=pars_fixed$log_sigma0), 1)
   estimates$beta <- joinPars(pars_est$beta, pars_fixed$beta, 1:nbeta)
 
