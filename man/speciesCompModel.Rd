@@ -243,6 +243,7 @@ Set the model parameters before fitting with EM algorithm, including which value
   date = NULL,
   ndays = NULL,
   delta_mu_bounds = NULL,
+  delta_sd_bounds = NULL,
   expansion_formula = NULL,
   test_fishery_spp = NULL
 )}\if{html}{\out{</div>}}
@@ -266,6 +267,8 @@ Set the model parameters before fitting with EM algorithm, including which value
 \item{\code{ndays}}{Number of days to combine (optional).}
 
 \item{\code{delta_mu_bounds}}{Matrix or vector to schoose how much the mean length of each species can vary. Matrix must have nrows of number of species. Otherwise a vector is length 2 and declares lower and upper for all.}
+
+\item{\code{delta_sd_bounds}}{Matrix or vector to schoose how much the standard deviation of length of each species can vary. Matrix must have nrows of number of species. Otherwise a vector is length 2 and declares lower and upper for all.}
 
 \item{\code{expansion_formula}}{Formula to set the test fishery expansion line relationships (defualt = ~ species:fishery).}
 

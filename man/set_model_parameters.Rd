@@ -9,7 +9,8 @@ set_model_parameters(
   fixed_parameters = c("mu", "sigma", "proportion_jackchinook"),
   fixed_values = list(),
   initial_values = list(),
-  delta_mu_bounds = NULL
+  delta_mu_bounds = NULL,
+  delta_sd_bounds = NULL
 )
 }
 \arguments{
@@ -22,6 +23,8 @@ set_model_parameters(
 \item{initial_values}{List with names equal to parameters and named vectors providing initial values.}
 
 \item{delta_mu_bounds}{Matrix (first column lower bound, second upper bound) or vector (lower bound, upper bound) (Defaults to (-1,1)).}
+
+\item{delta_sd_bounds}{Matrix (first column lower bound, second upper bound) or vector (lower bound, upper bound) (Defaults to (-0.5,0.5)).}
 }
 \value{
 No object returned, appends \code{self$params_fixed} and \code{self$params_init}
