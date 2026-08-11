@@ -60,7 +60,7 @@ plot_mix <- function(self, day = 1, ...){
     stop("Must run 'fitModel' before trying to predict species composition for this date.")
 
   mu <- self$params_estimated$mu_adjusted
-  sigma <- self$params_estimated$sigma
+  sigma <- self$params_estimated$sigma_adjusted
   sigma0 <- self$params_estimated$sigma0
   beta <- self$params_estimated$beta
 
@@ -253,7 +253,8 @@ plot_prior <- function(self, parameter){
   mu <- self$params_estimated[[param]]
   if(param %in% c("qinv", "mu", "sigma", "sigma0")) mu <- log(self$params_estimated[[param]])
   if(param == "delta_mu") mu <- logitInterval(self$params_estimated[["delta_mu"]], self$data_list$lower_delta_mu, self$data_list$upper_delta_mu)
-  
+  if(param == "delta_sd") mu <- logitInterval(self$params_estimated[["delta_sd"]], self$data_list$lower_delta_sd, self$data_list$upper_delta_sd)
+
   spp <- self$species_info$species
   
   plot_p <- ggplot(priors, aes(x = x, y = y)) + 

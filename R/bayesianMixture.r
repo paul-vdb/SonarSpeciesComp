@@ -26,6 +26,9 @@ make_negll <- function(self){
   obs_lengths <- self$data_list$length_data$L.cm.adj
   lower_delta_mu <- self$data_list$lower_delta_mu
   upper_delta_mu <- self$data_list$upper_delta_mu
+  lower_delta_sd <- self$data_list$lower_delta_sd
+  upper_delta_sd <- self$data_list$upper_delta_sd
+
   nbeta <- ncol(self$data_list$X_length)
   test_fishery_catch <- self$data_list$test_fishery_catch
   test_fishery_weights <- self$data_info$test_fishery_weights
@@ -55,7 +58,10 @@ make_negll <- function(self){
     sigma0 <- exp(log_sigma0)
     ## Observed standard deviation
     sigma <- sqrt(exp(2*log_sigma) + exp(2*log_sigma0))
-
+    
+    delta_sd <- ilogitInterval(pars_inner$logit_delta_sd, lower_delta_sd, upper_delta_sd)
+    sigma <- sigma + delta_sd
+    
     ## 3) Catchability
     log_qinv <- pars_inner$log_qinv
     qinv <- exp(log_qinv)
@@ -73,7 +79,8 @@ make_negll <- function(self){
     ## Prior Distributions:
     objval <- objval - self$prior_distributions$dlog_qinv(qinv) - self$prior_distributions$dbeta(beta) - self$prior_distributions$dalpha_jackchinook(alpha_jackchinook) - 
         self$prior_distributions$dlog_sigma(sigma_spp) - self$prior_distributions$dmu(mu) - self$prior_distributions$dlogit_delta_mu(delta_mu, lower = lower_delta_mu, upper = upper_delta_mu) - 
-        self$prior_distributions$dlog_sigma0(sigma0) - self$prior_distributions$dalpha(alpha)
+        self$prior_distributions$dlog_sigma0(sigma0) - self$prior_distributions$dalpha(alpha) - 
+        self$prior_distributions$dlogit_delta_sd(delta_sd, lower = lower_delta_sd, upper = upper_delta_sd)
           
     ## Set up proportions. alpha parameter for predicting proportions. 
     p <- calcProportions(alpha = alpha, alpha_jackchinook = alpha_jackchinook, 
@@ -144,14 +151,16 @@ compute_param_values <- function(self, post, ad_obj){
   betanames <- paste0("beta[", 1:length(est_pars$beta), "]")
   qinvnames <- paste0("qinv[", 1:length(est_pars$qinv), "]")
   sigma0names <- "sigma0[1]"
-  deltanames <- paste0("delta_mu[", 1:length(est_pars$delta_mu), "]")
+  deltamunames <- paste0("delta_mu[", 1:length(est_pars$delta_mu), "]")
+  deltasdnames <- paste0("delta_sd[", 1:length(est_pars$delta_mu), "]")  
   muadjnames <- paste0("mu_adjusted[", 1:length(est_pars$mu_adjusted), "]")
+  sigmaadjnames <- paste0("sigma_adjusted[", 1:length(est_pars$mu_adjusted), "]")
   alphajacknames <- paste0("alpha_jack[", 1:length(est_pars$alpha_jackchinook), "]")
   alphanames <- paste0("alpha[", 1:length(est_pars$alpha), "]")
   munames <- paste0("mu[", 1:length(est_pars$mu), "]")
   sigmanames <- paste0("sigma[", 1:length(est_pars$sigma), "]")
 
-  names <- c(munames, sigmanames, alphanames, alphajacknames, deltanames, muadjnames, sigma0names, betanames, qinvnames, Pnames, Nnames)
+  names <- c(munames, sigmanames, alphanames, alphajacknames, deltamunames, deltasdnames, muadjnames, sigmaadjnames, sigma0names, betanames, qinvnames, Pnames, Nnames)
   output <- matrix(NA, ncol = length(names), nrow = nrow(post))
   colnames(output) <- names
   
@@ -161,8 +170,10 @@ compute_param_values <- function(self, post, ad_obj){
     output[i, betanames] <- parsi$beta
     output[i, munames] <- parsi$mu
     output[i, sigmanames] <- exp(parsi$log_sigma)
-    output[i, deltanames] <- ilogitInterval(parsi$logit_delta_mu, self$data_list$lower_delta_mu, self$data_list$upper_delta_mu)
-    output[i, muadjnames] <- parsi$mu + output[i, deltanames]
+    output[i, deltamunames] <- ilogitInterval(parsi$logit_delta_mu, self$data_list$lower_delta_mu, self$data_list$upper_delta_mu)
+    output[i, deltasdnames] <- ilogitInterval(parsi$logit_delta_sd, self$data_list$lower_delta_sd, self$data_list$upper_delta_sd)  
+    output[i, muadjnames] <- parsi$mu + output[i, deltamunames]
+    output[i, sigmaadjnames] <- exp(parsi$log_sigma) + output[i, deltasdnames]    
     output[i, sigma0names] <- exp(parsi$log_sigma0)
     output[i, qinvnames] <- exp(parsi$log_qinv)
     output[i, alphanames] <- parsi$alpha
@@ -215,6 +226,9 @@ run_full_model <- function(self, bayesian = TRUE){
   obs_lengths <- self$data_list$length_data$L.cm.adj
   lower_delta_mu <- self$data_list$lower_delta_mu
   upper_delta_mu <- self$data_list$upper_delta_mu
+  lower_delta_sd <- self$data_list$lower_delta_sd
+  upper_delta_sd <- self$data_list$upper_delta_sd
+  
   nbeta <- ncol(self$data_list$X_length)
   test_fishery_catch <- self$data_list$test_fishery_catch
   test_fishery_weights <- self$data_info$test_fishery_weights
@@ -253,6 +267,7 @@ run_full_model <- function(self, bayesian = TRUE){
   inits$logit_delta_mu <- logitInterval(as.numeric(est_pars$delta_mu), lower_delta_mu, upper_delta_mu)
   ## 2) Length standard deviation
   inits$log_sigma <- as.numeric(log(est_pars$sigma))  ## *** data input
+  inits$logit_delta_sd <- logitInterval(as.numeric(est_pars$delta_sd), lower_delta_sd, upper_delta_sd)
   ## length measurement error:
   inits$log_sigma0 <- as.numeric(log(est_pars$sigma0))
   ## 3) Catchability
@@ -264,7 +279,7 @@ run_full_model <- function(self, bayesian = TRUE){
   inits$beta <- as.numeric(est_pars$beta)
 
   par_map <- list()
-  par_names <- gsub("log_|ilogit_", "", names(pars_fixed))
+  par_names <- gsub("log_|logit_", "", names(pars_fixed))
   for( i in 1:length(pars_fixed) ){
     var_id <- names(pars_fixed)[i]
     pari <- 1:length(inits[[var_id]])
@@ -295,7 +310,7 @@ run_full_model <- function(self, bayesian = TRUE){
   dnames <- paste0(rep(species_N, each = nrow(est_pars$N_daily)), "_", rep(est_pars$N_daily$Date, length(species_N)))
   
   sum.out <- data.frame(parameter = gsub("\\[.*", "", colnames(output)),
-    type = c(species, species, alpha_names, species, species, 1, 1:length(est_pars$beta), names(est_pars$qinv), pnames, dnames),
+    type = c(species, species, alpha_names, species, species, species, species, 1, 1:length(est_pars$beta), names(est_pars$qinv), pnames, dnames),
     param = colnames(output)
   )
   sum.out <- cbind(sum.out, "mean" = apply(output, 2, mean), "mode" = apply(output, 2, findGlobalMode), "sd" = apply(output, 2, sd), t(apply(output, 2, quantile, c(0.025, 0.5, 0.975))))
