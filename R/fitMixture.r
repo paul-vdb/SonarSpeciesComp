@@ -80,8 +80,8 @@ fit_joint_model <- function(self){
     ## length measurement error:
     log_sigma0 <- joinPars(pars_outer$log_sigma0, pars_fixed$log_sigma0, 1)
     ## Observed standard deviation
-    sigma <- sqrt(exp(2*log_sigma) + exp(2*log_sigma0))
-    sigma <- sigma + delta_sd 
+    sigma <- exp(log_sigma) + delta_sd
+    sigma <- sqrt(sigma^2 + exp(2*log_sigma0))
     
     ## 3) Catchability
     log_qinv <- joinPars(pars_outer$log_qinv, pars_fixed$log_qinv, names_tf)  ## *** data input
@@ -159,8 +159,8 @@ fit_joint_model <- function(self){
       ## length measurement error:
       log_sigma0 <- joinPars(pars_inner$log_sigma0, pars_fixed$log_sigma0, 1)
       ## Observed standard deviation
-      sigma <- sqrt(exp(2*log_sigma) + exp(2*log_sigma0))
-      sigma <- sigma + delta_sd
+      sigma <- exp(log_sigma) + delta_sd
+      sigma <- sqrt(sigma^2 + exp(2*log_sigma0))
 
       ## 3) Catchability
       log_qinv <- joinPars(pars_inner$log_qinv, pars_fixed$log_qinv, names_tf) 

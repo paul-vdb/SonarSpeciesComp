@@ -57,10 +57,10 @@ make_negll <- function(self){
     log_sigma0 <- pars_inner$log_sigma0
     sigma0 <- exp(log_sigma0)
     ## Observed standard deviation
-    sigma <- sqrt(exp(2*log_sigma) + exp(2*log_sigma0))
-    
     delta_sd <- ilogitInterval(pars_inner$logit_delta_sd, lower_delta_sd, upper_delta_sd)
-    sigma <- sigma + delta_sd
+    sigma <- exp(log_sigma) + delta_sd
+    sigma <- sqrt(sigma^2 + exp(2*log_sigma0))
+    
     
     ## 3) Catchability
     log_qinv <- pars_inner$log_qinv
