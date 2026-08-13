@@ -76,7 +76,7 @@ plot_mix <- function(self, day = 1, ...){
   xx <- seq(10, 110, 1)
   species <- self$species_info$species
   p <- self$params_estimated$p_daily |> subset(Date == dd) |> subset(select=-Date) |> as.numeric()
-  fx <- do.call("rbind", lapply(1:length(species), FUN = function(i){data.frame(x = xx, f = p[i]*dnorm(xx, mu[i], sqrt(sigma[i]^2 + sigma0^2)), species = species[i])}))
+  fx <- do.call("rbind", lapply(1:length(species), FUN = function(i){data.frame(x = xx, f = p[i]*dnorm(xx, mu[i], sqrt(sigma[i]^2 + sigma0^2))/pnorm(35,mu[i], sqrt(sigma[i]^2 + sigma0^2), lower.tail = FALSE), species = species[i])}))
   fx <-  fx |> within(species <- factor(species, levels = self$species_info$species))
   fx_all <- fx |> aggregate(f~x, sum)
 

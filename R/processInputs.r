@@ -790,6 +790,7 @@ set_species_lengths <- function(self, mu = NULL, sigma = NULL, proportions_chino
   ## Add the values to the the parameters:
   self$default_parameters$mu <- mu_
   self$default_parameters$sigma <- sigma_
+  if(any(self$default_parameters$sigma < 1 | self$default_parameters$sigma > 9)) cat("[Warning]  Very large sigma values are being set in the model. Suggest double checking the test fishery lengths and using default sigma instead. \n")
   self$default_parameters$alpha_jackchinook <- log(proportions_chinook_[1]/(1-proportions_chinook_[1]))
   self$default_parameters$proportion_adultchinook <- proportions_chinook_[self$species_info$species_chinook[-1]]/(1-proportions_chinook_[self$species_info$species_chinook[1]])
 }
@@ -810,11 +811,11 @@ fitChinookLengths <- function(x, chinook_names, mu_chin, sigma_chin, proportions
     nchinook <- length(chinook_names)
 
     ## See what values are fixed:
-    mu_jack_fixed <- "jackchinook" %in% mu_fixed
-    sigma_jack_fixed <- "jackchinook" %in% sigma_fixed
+    mu_jack_fixed <- "jackchinook" %in% names(mu_fixed)
+    sigma_jack_fixed <- "jackchinook" %in% names(sigma_fixed)
     
-    mu_adult_fixed <- any(grepl("adultchinook", mu_fixed))
-    sigma_adult_fixed <- any(grepl("adultchinook", sigma_fixed))
+    mu_adult_fixed <- any(grepl("adultchinook", names(mu_fixed)))
+    sigma_adult_fixed <- any(grepl("adultchinook", names(sigma_fixed)))
         
     ## Scenario 1: All fixed values:
     if(sigma_adult_fixed & mu_adult_fixed & mu_jack_fixed & sigma_jack_fixed){
@@ -903,6 +904,10 @@ fitChinookLengths <- function(x, chinook_names, mu_chin, sigma_chin, proportions
     names(p_est) <- chinook_names
     names(sigma_est) <- chinook_names
     names(mu_est) <- chinook_names
+    
+    ## Ensure that fixed values are always set properly: 
+    if(length(mu_fixed) > 0) mu_est[names(mu_fixed)] <- mu_fixed
+    if(length(sigma_fixed) > 0) sigma_est[names(sigma_fixed)] <- sigma_fixed
     
     p_est <- p_est/sum(p_est)
     return(list(mu = mu_est, sigma = sigma_est, p = p_est))
