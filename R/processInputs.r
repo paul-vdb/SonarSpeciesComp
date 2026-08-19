@@ -593,8 +593,8 @@ set_daily_data <- function(self){
   if(length(self$test_fishery_catch) > 0){
     tf_names <- names(self$test_fishery_catch)
     catch <- NULL
-    cols <- c("Date", "pink", "sockeye", "jackchinook", "adultchinook", "chinook", "effort", "net_type")
-    spp_tf <- c("pink", "sockeye", "jackchinook", "adultchinook", "chinook")
+    cols <- c("Date", "pink", "sockeye", "coho", "chum", "jackchinook", "adultchinook", "chinook", "effort", "net_type")
+    spp_tf <- c("pink", "sockeye", "coho", "chum", "jackchinook", "adultchinook", "chinook")
     for( i in 1:length(self$test_fishery_catch) ){
       cols_i <- cols[cols %in% names( self$test_fishery_catch[[i]] )]
       catch_i <- self$test_fishery_catch[[i]] |> 
