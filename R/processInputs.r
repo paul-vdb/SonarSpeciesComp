@@ -131,7 +131,7 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
       if(!is.null(test_fishery_counts)) self$fit_info$include_test_fishery <- TRUE
 
       if(self$data_info$site == "Qualark") {
-        process_qualark_lengths <- function(self, sonar_counts, sonar_lengths, dropN)
+        process_qualark_lengths(self, sonar_counts, sonar_lengths, dropN)
         if(inherits(test_fishery_counts, "data.frame")){
           process_qualark_catch(self, test_fishery_counts)
         }
