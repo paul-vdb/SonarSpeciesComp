@@ -69,10 +69,8 @@ process_qualark_lengths <- function(self, sonar_counts, sonar_lengths, dropN = 2
 
   ## Will remove single lengths measured in an hour:
   sonar_lengths <- sonar_lengths |> subset(nLengths > dropN)
-  
-  ## Sonar Lengths _ Adjust for roll angle:
-  sonar_lengths$L.cm <- sonar_lengths$L.cm/cos(35*pi/180) ## Hard coded but the roll angle does sometimes change...**********************
-  
+  sonar_lengths <- sonar_lengths |> within(stratum <- paste(SonarBank, SonarBin, sep = "_"))
+
   self$sonar_lengths <- sonar_lengths
   
   salmon_counts <- sonar_counts |> aggregate(SalmonFlux ~ Date + SonarBin, sum)  
@@ -130,7 +128,8 @@ process_qualark_catch <- function(self, test_fishery_counts){
   test_fishery_counts <- test_fishery_counts |> within(session <- ifelse(`Drift Number` %in% 1:3, "AM", "PM"))
   
   out <- test_fishery_counts |> aggregate(cbind(adultchinook, sockeye, coho, pink, chum, jackchinook, chinook, effort) ~ Date + session, sum)
-
+  out$Date <- as.Date(out$Date) ## Make sure this is a date.
+  
   out$net_type <- "vmn"
   
   self$test_fishery_catch[["qualark"]] <- out
