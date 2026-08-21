@@ -131,7 +131,11 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
       if(!is.null(test_fishery_counts)) self$fit_info$include_test_fishery <- TRUE
 
       if(self$data_info$site == "Qualark") {
-        process_qualark_data(self, net_length = 30)
+        process_qualark_lengths <- function(self, sonar_counts, sonar_lengths, dropN)
+        if(inherits(test_fishery_counts, "data.frame")){ 
+          process_qualark_catch(self, test_fishery_counts)
+        if(!is.null(test_fishery_counts[["qualark"]])) process_qualark_catch(self, test_fishery_counts[["qualark"]])
+        
       }
       if(self$data_info$site == "Mission") {
         process_mission_lengths(self, sonar_counts, sonar_lengths, dropN)
@@ -147,7 +151,6 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
             self$salmon_counts <- self$salmon_counts |> within(offshore <- count*proportion_offshore)
           }else{ 
             process_mission_salmon_passage(self, salmon_passage_table)
-            ## *** update for nearshore...
           }
         }
       }
