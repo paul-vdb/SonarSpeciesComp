@@ -132,10 +132,10 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
 
       if(self$data_info$site == "Qualark") {
         process_qualark_lengths <- function(self, sonar_counts, sonar_lengths, dropN)
-        if(inherits(test_fishery_counts, "data.frame")){ 
+        if(inherits(test_fishery_counts, "data.frame")){
           process_qualark_catch(self, test_fishery_counts)
+        }
         if(!is.null(test_fishery_counts[["qualark"]])) process_qualark_catch(self, test_fishery_counts[["qualark"]])
-        
       }
       if(self$data_info$site == "Mission") {
         process_mission_lengths(self, sonar_counts, sonar_lengths, dropN)
