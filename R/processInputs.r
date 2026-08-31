@@ -1016,10 +1016,10 @@ process_albion_catch <- function(self, albion_catch){
   ## Chum net = 150, Chinook net = 200 fathoms
   # albion_catch <- albion_catch |> within(net_length <- ifelse(grepl("chum", NET_CONFIG, ignore.case = TRUE), 150, 200))
   albion_catch <- albion_catch |> within(net_length <- 200)
-  albion_total <- albion_catch |> aggregate(CATCH_QTY~CRPT_DTT+NET_CONFIG+SET_NO, sum)
+  albion_total <- albion_catch |> aggregate(CATCH_QTY~CRPT_DTT+NET_CONFIG+SET_NO+SPECIES_COMMON_NME, sum)
 
-  albion_set <- albion_catch |> by( ~ CRPT_DTT+NET_CONFIG+SET_NO, 
-    function(x){data.frame(CRPT_DTT = x$CRPT_DTT[1], NET_CONFIG = x$NET_CONFIG[1], SET_NO = x$SET_NO[1], net_length = x$net_length[1],
+  albion_set <- albion_catch |> by( ~ CRPT_DTT+NET_CONFIG+SET_NO+SPECIES_COMMON_NME,
+    function(x){data.frame(CRPT_DTT = x$CRPT_DTT[1], NET_CONFIG = x$NET_CONFIG[1], SPECIES_COMMON_NME = x$SPECIES_COMMON_NME[1], SET_NO = x$SET_NO[1], net_length = x$net_length[1],
                 NET_START_IN = min(x$NET_START_IN), NET_FULL_IN = max(x$NET_FULL_IN), 
                 NET_START_OUT = min(x$NET_START_OUT), NET_FULL_OUT = max(x$NET_FULL_OUT))})
   albion_set <- do.call("rbind", albion_set)
@@ -1030,11 +1030,16 @@ process_albion_catch <- function(self, albion_catch){
     within(time_full <- as.numeric(difftime(NET_START_IN, NET_FULL_OUT, units = "mins"))) |>
     within(time <- time_in^0.5/2 + time_out/2 + time_full)
   albion_set <- albion_set |> within(effort <- net_length*time/1000)
+  albion_set <- albion_set |> subset(grepl("chinook", SPECIES_COMMON_NME, ignore.case = TRUE))  
   albion_set <- albion_set |> aggregate(cbind(effort, time, net_length) ~ CRPT_DTT + NET_CONFIG + SET_NO, sum)
-
+  
+  albion_total$SPECIES_COMMON_NME <- tolower(gsub(" SALMON", "", albion_total$SPECIES_COMMON_NME))
+  albion_total <- reshape(albion_total, direction = "wide", idvar = c("CRPT_DTT", "NET_CONFIG", "SET_NO"), timevar = "SPECIES_COMMON_NME", v.names = "CATCH_QTY", sep = "_")
+  names(albion_total) <- gsub("CATCH_QTY_", "", names(albion_total))
   albion_total <- albion_total |> merge(albion_set, by = c("CRPT_DTT", "NET_CONFIG", "SET_NO"))
-  names(albion_total)[names(albion_total) == "CATCH_QTY"] <- "chinook"  
-  albion_total <- albion_total |> within(cpue <- chinook/effort) 
+
+  # names(albion_total)[names(albion_total) == "CATCH_QTY"] <- "chinook"  
+  # albion_total <- albion_total |> within(cpue <- chinook/effort) 
   albion_total$Date <- as.Date(albion_total$CRPT_DTT)
   albion_total <- albion_total |> within(net_type <- ifelse(grepl("SP CHINOOK", NET_CONFIG, ignore.case=TRUE), "chin", NET_CONFIG))
   albion_total <- albion_total |> within(net_type <- ifelse(grepl("VMN", NET_CONFIG, ignore.case=TRUE), "vmn", net_type))
