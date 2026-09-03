@@ -51,12 +51,12 @@ process_qualark_lengths <- function(self, sonar_counts, sonar_lengths, dropN = 2
   names(sonar_counts)[names(sonar_counts) == "Count Hour"] <- "Hour"
   names(sonar_counts)[names(sonar_counts) == "Duration"] <- "MinsCounted"
 
-  sonar_counts_all <- sonar_counts |> within(Count <- Up + Down) |> within(SalmonCount <- Up - Down) |> subset(!is.na(SalmonFlux))
-  sonar_counts <- sonar_counts |> within(Count <- Up + Down) |> within(SalmonCount <- Up - Down) |> subset(!is.na(Count))
-  
   ## check Date and Mission Date: Format should be m/d/Y.
   if(!is.Date(sonar_counts$Date)) sonar_counts$Date <- as.Date(sonar_counts$Date, format = "%Y-%m-%d")
 
+  sonar_counts_all <- sonar_counts |> within(Count <- Up + Down) |> within(SalmonCount <- Up - Down) |> subset(!is.na(SalmonFlux))
+  sonar_counts <- sonar_counts |> within(Count <- Up + Down) |> within(SalmonCount <- Up - Down) |> subset(!is.na(Count))
+  
   suppressMessages(
     sonar_counts <- sonar_counts |> within(join_id <- factor(paste(SonarBank, SonarBin, Hour, Date, sep = "")), levels = levels(sonar_lengths$join_id)) |>
                    subset(!is.na(join_id)) |> within(lookup_code <- as.numeric(join_id))
