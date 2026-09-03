@@ -51,7 +51,8 @@ process_qualark_lengths <- function(self, sonar_counts, sonar_lengths, dropN = 2
   names(sonar_counts)[names(sonar_counts) == "Count Hour"] <- "Hour"
   names(sonar_counts)[names(sonar_counts) == "Duration"] <- "MinsCounted"
 
-  sonar_counts <- sonar_counts |> within(Count <- Up + Down) |> within(SalmonCount <- Up - Down) |> subset(!is.na(SalmonFlux))
+  sonar_counts_all <- sonar_counts |> within(Count <- Up + Down) |> within(SalmonCount <- Up - Down) |> subset(!is.na(SalmonFlux))
+  sonar_counts <- sonar_counts |> within(Count <- Up + Down) |> within(SalmonCount <- Up - Down) |> subset(!is.na(Count))
   
   ## check Date and Mission Date: Format should be m/d/Y.
   if(!is.Date(sonar_counts$Date)) sonar_counts$Date <- as.Date(sonar_counts$Date, format = "%Y-%m-%d")
@@ -73,7 +74,7 @@ process_qualark_lengths <- function(self, sonar_counts, sonar_lengths, dropN = 2
 
   self$sonar_lengths <- sonar_lengths
   
-  salmon_counts <- sonar_counts |> aggregate(SalmonFlux ~ Date + SonarBin, sum)  
+  salmon_counts <- sonar_counts_all |> aggregate(SalmonFlux ~ Date + SonarBin, sum)  
   salmon_counts <- salmon_counts |> reshape(direction = "wide", idvar = "Date", timevar = "SonarBin")
   salmon_counts <- salmon_counts |> within(nearshore <- SalmonFlux.Bin1 + SalmonFlux.Bin2) |>
                                     within(offshore <- SalmonFlux.Bin3) |>
