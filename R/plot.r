@@ -80,13 +80,16 @@ plot_mix <- function(self, day = 1, ...){
   fx <-  fx |> within(species <- factor(species, levels = self$species_info$species))
   fx_all <- fx |> aggregate(f~x, sum)
 
+  x_lab <- "Fish Length (cm) - Adjusted for Beam Spreading"
+  if(all(beta == 0)) x_lab <- "Fish Length (cm)"
+
   if (require("ggplot2", quietly = TRUE)) {
     plot_h <- ggplot(length_df) + 
       geom_histogram(aes(x = L.cm.modadj, y = ..density.., weight = weights), binwidth = 2, alpha = 0.5, colour = "black") +
       geom_line(data = fx, aes(x = x, y = f, colour = species), linewidth = 1) +
       theme_bw() +
       scale_colour_manual("Species", labels = speciesLabels(species), values = speciesColours(species)) +
-      xlab("Fish Length (cm) - Adjusted for Beam Spreading") + ylab("Density") + 
+      xlab(x_lab) + ylab("Density") + 
       geom_line(data = fx_all, aes(x = x, y = f), colour = "black", linetype = 2, linewidth = 1) +
       ggtitle(paste0("Date: ", dd))
     suppressWarnings(print(plot_h))
