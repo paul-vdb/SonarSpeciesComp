@@ -28,7 +28,13 @@ fit_joint_model <- function(self){
 
   wgts <- self$data_list$length_data$weights
   ## Scale for natural comparison with test fishery.
-  wgts <- wgts/max(wgts)  
+  if(self$fit_info$normalize_weights == 1){
+    wgts <- wgts/max(wgts)  
+  }else{
+    if(self$fit_info$normalize_weights == 2){
+      wgts <- wgts/sum(wgts)  
+    }
+  }
   obs_lengths <- self$data_list$length_data$L.cm.adj
 
   lower_delta_mu <- self$data_list$lower_delta_mu
