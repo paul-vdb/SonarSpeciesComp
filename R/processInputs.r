@@ -120,7 +120,7 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
       self$fit_info$relative_difference<- extractControls(control$relative_difference, 1000)
       self$fit_info$verbose <- extractControls(control$verbose, FALSE)
       self$fit_info$offshore_largeresidents <- extractControls(control$offshore_largeresidents, TRUE)
-      self$fit_info$normalize_weights <- extractControls(control$verbose, 1)
+      self$fit_info$normalize_weights <- extractControls(control$normalize_weights, 1)
     },
     #' @description Function to process input data for analysis. Does the main data processing and adds a few columns needed elsewhere for the entire dataset added to make it fast and easy to do different days.
     #' @param sonar_counts Data frame of sonar counts in standard format.
@@ -223,7 +223,7 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
       self$data_info$test_fishery_weights <- extractControls(control$test_fishery_weights, self$data_info$test_fishery_weights)
       self$fit_info$adjust_lengths <- extractControls(control$adjust_lengths, self$fit_info$adjust_lengths)
       self$fit_info$offshore_largeresidents <- extractControls(control$offshore_largeresidents, self$fit_info$offshore_largeresidents)
-      self$fit_info$normalize_weights <- extractControls(control$verbose, self$fit_info$normalize_weights)
+      self$fit_info$normalize_weights <- extractControls(control$normalize_weights, self$fit_info$normalize_weights)
       est_pars <- fit_joint_model(self)
       
       if(include_uncertainty){
