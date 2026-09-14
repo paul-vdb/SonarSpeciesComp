@@ -101,16 +101,16 @@ process_qualark_catch <- function(self, test_fishery_counts){
   test_fishery_counts <- test_fishery_counts |> subset(!is.na(Date))
 
   if(inherits(test_fishery_counts$`Start Time`, "POSIXct") & inherits(test_fishery_counts$`End Time`, "POSIXct")){
-    test_fishery_counts <- test_fishery_counts |> within(soak_time <- as.numeric(difftime(`End Time`, `Start Time`, "min")))
+    test_fishery_counts <- test_fishery_counts |> within(soak_time <- as.numeric(difftime(`End Time`, `Start Time`, units = "min")))
   }else{
-  test_fishery_counts <- test_fishery_counts |> 
-                         within(start_out <- process_minutes(`Start Time`)) |>
-                         within(full_out <- process_minutes(`End Time`)) |>
-                         within(soak_time <- full_out - start_out)
+    test_fishery_counts <- test_fishery_counts |> 
+                           within(start_out <- process_minutes(`Start Time`)) |>
+                           within(full_out <- process_minutes(`End Time`)) |>
+                           within(soak_time <- full_out - start_out)
   }
 
   ## Should be close to 5 minutes:
-  if(any(test_fishery_counts$soak_time > 10 | test_fishery_counts$soak_time == 0)) cat("[Warning]   Test fishery soak times are not as expected. Double check via $data_list$test_fishery_counts.")
+  if(any(test_fishery_counts$soak_time > 10 | test_fishery_counts$soak_time == 0)) cat("[Warning]   Test fishery soak times are not as expected. Double check via $data_list$test_fishery_catch.")
 
   ## Soak Time and Effort:
   ## *** pvdb Don't like correction factor. Discounting the impact of in-time makes the CPUE relationship linear...
