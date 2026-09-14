@@ -110,7 +110,7 @@ process_qualark_catch <- function(self, test_fishery_counts){
   }
 
   ## Should be close to 5 minutes:
-  if(any(test_fishery_counts$soak_time > 10 | test_fishery_counts$soak_time == 0)) cat("[Warning]   Test fishery soak times are not as expected. Double check via $data_list$test_fishery_catch.")
+  if(any(test_fishery_counts$soak_time > 10 | test_fishery_counts$soak_time == 0)) cat("[Warning]   Test fishery soak times are not as expected. Double check via $data_list$test_fishery_catch./n")
 
   ## Soak Time and Effort:
   ## *** pvdb Don't like correction factor. Discounting the impact of in-time makes the CPUE relationship linear...
