@@ -519,7 +519,7 @@ process_mission_catch <- function(self, test_fishery_counts, name = "whonnock", 
 
   out <- out |> within(chinook <- adultchinook + jackchinook)
   
-  out <- out |> aggregate(cbind(pink, sockeye, coho, chum, jackchinook, adultchinook, chinook, effort) ~ FE_SET_NO + Date, sum)
+  out <- out |> aggregate(cbind(pink, sockeye, coho, chum, jackchinook, adultchinook, chinook, soak_time, effort) ~ FE_SET_NO + Date, sum)
 
   out$net_type <- "vmn"
   
