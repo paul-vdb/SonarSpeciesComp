@@ -133,6 +133,10 @@ plot_test_fishery <- function(self, includePrior = TRUE){
   CPUE <- test_catch$catch/test_catch$effort
   E_CPUE <- N/qinv
   
+  tspp <- unique(test_catch$species)
+  tnet <- unique(test_catch$net_type)
+  tfishery <- unique(test_catch$fishery)
+  
   test_catch <- test_catch |> within(par <- factor(paste(test_catch$species, test_catch$fishery, test_catch$net_type, sep = "_")))
   test_catch$diff <- CPUE - E_CPUE
       
@@ -140,13 +144,31 @@ plot_test_fishery <- function(self, includePrior = TRUE){
     if(includePrior){
       priors <- prior_assess(self, "log_qinv")
       priors$facet_name <- "Prior Distribution Effect"
+            
+      priors$species <- sub(paste0("^(", paste(tspp, collapse = "|"), ").*"), "\\1", priors$parameter)
+      qinv_spp <- sub(paste0("^(", paste(tspp, collapse = "|"), ").*"), "\\1", names(self$params_estimated$qinv))
+
+      if(any(grepl(paste(tfishery, collapse = "|"), names(self$params_estimated$qinv)))){
+        priors$fishery <- sub(paste0(".*_(", paste(tfishery, collapse = "|"), ").*"), "\\1", priors$parameter)
+        qinv_fishery <- sub(paste0(".*_(", paste(tfishery, collapse = "|"), ").*"), "\\1", names(self$params_estimated$qinv))
+      }else{
+        priors$fishery <- "N/A"
+        qinv_fishery <- "N/A"
+      }
+      if(any(grepl(paste(paste0("_",tnet), collapse = "|"), names(self$params_estimated$qinv)))){
+        priors$net_type <- sub(paste0(".*_(", paste(tnet, collapse = "|"), ").*"), "\\1", priors$parameter)
+        qinv_net_type <- sub(paste0(".*_(", paste(tnet, collapse = "|"), ").*"), "\\1", names(self$params_estimated$qinv))
+      }else{
+        priors$net_type <- "N/A"
+        qinv_net_type <- "N/A"
+      }
 
       p_prior <- ggplot(priors, aes(x = x, y = y)) + 
-        geom_line(aes(colour = parameter), linewidth = 0.8) + 
-        geom_vline(data = data.frame(x = log(self$params_estimated$qinv), parameter = names(self$params_estimated$qinv)), 
-                                      aes(xintercept = x, colour=parameter), linetype = 2, linewidth = 0.8) + 
+        geom_line(aes(colour = fishery, linetype = net_type), linewidth = 0.8) + 
         theme_bw() + 
-        facet_wrap(~facet_name) + 
+        facet_wrap(~species) + 
+        geom_vline(data = data.frame(x = log(self$params_estimated$qinv), parameter = names(self$params_estimated$qinv), species = qinv_spp, fishery = qinv_fishery, net_type = qinv_net_type), 
+                                      aes(xintercept = x, colour=fishery, linetype = net_type), linetype = 2, linewidth = 0.8) +         
         xlab("Log Expansion Line") + 
         ylab("Prior Density")
     }
