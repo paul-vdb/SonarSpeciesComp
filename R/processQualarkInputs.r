@@ -128,7 +128,7 @@ process_qualark_catch <- function(self, test_fishery_counts){
   
   test_fishery_counts <- test_fishery_counts |> within(session <- ifelse(`Drift Number` %in% 1:3, "AM", "PM"))
   
-  out <- test_fishery_counts |> aggregate(cbind(adultchinook, sockeye, coho, pink, chum, jackchinook, chinook, effort) ~ Date + session, sum)
+  out <- test_fishery_counts |> aggregate(cbind(adultchinook, sockeye, coho, pink, chum, jackchinook, chinook, effort, soak_time) ~ Date + session, sum)
   out$Date <- as.Date(out$Date) ## Make sure this is a date.
   
   out$net_type <- "vmn"

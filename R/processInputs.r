@@ -495,7 +495,7 @@ process_mission_catch <- function(self, test_fishery_counts, name = "whonnock", 
                          within(soak_time <- (full_out-start_out)/2 + (start_in - full_out) + (full_in-start_in)^0.5/2) |>
                          within(effort <- soak_time*net_length/1000)
 
-  out <- test_fishery_counts[,c("TRIP_DTT", "FE_SET_NO", "effort", "net_length")]
+  out <- test_fishery_counts[,c("TRIP_DTT", "FE_SET_NO", "soak_time", "effort", "net_length")]
   names(out)[1] <- "Date"
   out$Date <- as.Date(out$Date)
   
@@ -600,7 +600,7 @@ set_daily_data <- function(self){
   if(length(self$test_fishery_catch) > 0){
     tf_names <- names(self$test_fishery_catch)
     catch <- NULL
-    cols <- c("Date", "pink", "sockeye", "coho", "chum", "jackchinook", "adultchinook", "chinook", "effort", "net_type")
+    cols <- c("Date", "pink", "sockeye", "coho", "chum", "jackchinook", "adultchinook", "chinook", "effort", "soak_time", "net_type")
     spp_tf <- c("pink", "sockeye", "coho", "chum", "jackchinook", "adultchinook", "chinook")
     for( i in 1:length(self$test_fishery_catch) ){
       cols_i <- cols[cols %in% names( self$test_fishery_catch[[i]] )]
@@ -612,7 +612,7 @@ set_daily_data <- function(self){
       spp_i <- spp_tf[spp_tf %in% names(catch_i)]
       for( j in 1:nrow(catch_i) ){
         catch_ij <- catch_i[j,]
-        catch <- rbind(catch, data.frame(Date = catch_ij$Date, fishery = tf_names[i], net_type = catch_ij$net_type, species = spp_i, catch = as.numeric(catch_ij[,spp_i]), effort = catch_ij$effort))
+        catch <- rbind(catch, data.frame(Date = catch_ij$Date, fishery = tf_names[i], net_type = catch_ij$net_type, species = spp_i, catch = as.numeric(catch_ij[,spp_i]), soak_time = catch_ij$soak_time, effort = catch_ij$effort))
       }
     }
     catch <- catch |> within(day <- as.numeric(factor(Date)))
@@ -1018,8 +1018,8 @@ process_albion_catch <- function(self, albion_catch){
   
   ## Net lengths in fathoms:
   ## Chum net = 150, Chinook net = 200 fathoms
-  # albion_catch <- albion_catch |> within(net_length <- ifelse(grepl("chum", NET_CONFIG, ignore.case = TRUE), 150, 200))
-  albion_catch <- albion_catch |> within(net_length <- 200)
+  albion_catch <- albion_catch |> within(net_length <- ifelse(grepl("chum", NET_CONFIG, ignore.case = TRUE), 150, 200))
+  # albion_catch <- albion_catch |> within(net_length <- 200)
   albion_total <- albion_catch |> aggregate(CATCH_QTY~CRPT_DTT+NET_CONFIG+SET_NO+SPECIES_COMMON_NME, sum)
 
   albion_set <- albion_catch |> by( ~ CRPT_DTT+NET_CONFIG+SET_NO+SPECIES_COMMON_NME,
@@ -1032,10 +1032,10 @@ process_albion_catch <- function(self, albion_catch){
     within(time_in <- as.numeric(difftime(NET_FULL_IN,  NET_START_IN, units = "mins"))) |> 
     within(time_out <- as.numeric(difftime(NET_FULL_OUT, NET_START_OUT, units = "mins"))) |>
     within(time_full <- as.numeric(difftime(NET_START_IN, NET_FULL_OUT, units = "mins"))) |>
-    within(time <- time_in^0.5/2 + time_out/2 + time_full)
-  albion_set <- albion_set |> within(effort <- net_length*time/1000)
+    within(soak_time <- time_in^0.5/2 + time_out/2 + time_full)
+  albion_set <- albion_set |> within(effort <- net_length*soak_time/1000)
   albion_set <- albion_set |> subset(grepl("chinook", SPECIES_COMMON_NME, ignore.case = TRUE))  
-  albion_set <- albion_set |> aggregate(cbind(effort, time, net_length) ~ CRPT_DTT + NET_CONFIG + SET_NO, sum)
+  albion_set <- albion_set |> aggregate(cbind(effort, soak_time, net_length) ~ CRPT_DTT + NET_CONFIG + SET_NO, sum)
   
   albion_total$SPECIES_COMMON_NME <- tolower(gsub(" SALMON", "", albion_total$SPECIES_COMMON_NME))
   albion_total <- reshape(albion_total, direction = "wide", idvar = c("CRPT_DTT", "NET_CONFIG", "SET_NO"), timevar = "SPECIES_COMMON_NME", v.names = "CATCH_QTY", sep = "_")

@@ -29,12 +29,15 @@ fit_joint_model <- function(self){
   wgts <- self$data_list$length_data$weights
   ## Scale for natural comparison with test fishery.
   if(self$fit_info$normalize_weights == 1){
-    wgts <- wgts/max(wgts)  
-  }else{
-    if(self$fit_info$normalize_weights == 2){
-      wgts <- wgts/sum(wgts)  
-    }
+    wgts <- wgts/max(wgts)
   }
+  if(self$fit_info$normalize_weights == 2){
+    wgts <- wgts/sum(wgts)  
+  }
+  if(self$fit_info$normalize_weights == 3){
+    wgts <- wgts/sum(wgts)*length(wgts)
+  }
+  
   obs_lengths <- self$data_list$length_data$L.cm.adj
 
   lower_delta_mu <- self$data_list$lower_delta_mu
@@ -47,6 +50,8 @@ fit_joint_model <- function(self){
   test_fishery_weights <- self$data_info$test_fishery_weights
   X_test_fishery <- self$data_list$X_test_fishery
   names_tf <- colnames(X_test_fishery)
+
+  # test_fishery_weights <- self$data_list$total_salmon$count*self$data_list$total_salmon$soak_time/(24*60)
 
   pars_init <- self$params_init
   pars_fixed <- self$params_fixed
