@@ -192,21 +192,46 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
                                   expansion_formula = NULL,
                                   test_fishery_spp = NULL){
       ## If user wants to update the date and species, they can do that here:
-      if(!is.null(expansion_formula)) self$data_info$test_fishery_formula <- expansion_formula
-      if(!is.null(test_fishery_spp)){
-        spp <- paste(self$species_info$species_predict, collapse = "|")
-        keep <- grep(spp, test_fishery_spp)
-        self$data_info$test_fishery_spp <- test_fishery_spp[keep]
-        if(length(keep) != length(test_fishery_spp)) cat("[Warning]  Removing species in 'test_fishery_spp' not active in model. \n")
+      if(!is.null(expansion_formula)){ 
+        if(!is.list(expansion_formula)) expansion_formula <- list("all" = expansion_formula)
+        self$data_info$test_fishery_formula <- expansion_formula
+      }else{
+        cat("Warning:  Using default test fishery formula for each specices ~ 0 + fishery. Ignore if excluding test fishing in model. \n")
+        self$data_info$test_fishery_formula <- list("all" = ~ 0 + fishery)
       }
+      if(is.null(test_fishery_spp)){
+        if(self$data_info$site == "Mission") {
+          test_fishery_spp <- c("sockeye_whonnock", "chinook_whonnock")
+          cat("[Warning]  test_fishery_spp not provided. Defaulting to c('sockeye_whonnock', 'chinook_whonnock'). Ignore if excluding test fishing in model.  \n")
+        }
+        if(self$data_info$site == "Qualark"){
+          test_fishery_spp <- c("sockeye_qualark", "chinook_qualark")
+          cat("[Warning]  test_fishery_spp not provided. Defaulting to c('sockeye_qualark', 'chinook_qualark'). Ignore if excluding test fishing in model. \n")
+        }
+      }
+      spp <- paste(self$species_info$species_predict, collapse = "|")
+      keep <- grep(spp, test_fishery_spp)
+      self$data_info$test_fishery_spp <- test_fishery_spp[keep]
+      if(length(keep) != length(test_fishery_spp)) cat("[Warning]  Removing species in 'test_fishery_spp' not active in model. \n")
+
       self$setDate(date, ndays)
       set_daily_data(self)
-
+      
+      ## Pain in the arse to do species specific test fishery formulas. But this makes it easier for the user to do chum net chinook net differences for chum only...
+      spp <- unique(sub("_.*", "", test_fishery_spp))
+      spp <- spp[spp %in% self$species_info$species_predict]
+      X_test_fishery <- NULL
       ## Set test fishery formula
-      self$data_list$X_test_fishery <- model.matrix(self$data_info$test_fishery_formula, data = self$data_list$test_fishery_catch)
-      ## Remove columns that are all zero (e.g. sockeye has 1 net type).
-      csum <- colSums(abs(self$data_list$X_test_fishery)) 
-      self$data_list$X_test_fishery <- self$data_list$X_test_fishery[, csum > 0, drop = FALSE]
+      for( i in seq_along(spp) ){
+        form <- expansion_formula[["all"]]
+        if(spp[i] %in% names(expansion_formula)) form <- expansion_formula[[spp[i]]]
+          mat <- model.matrix(form, data = self$data_list$test_fishery_catch)
+          mat[self$data_list$test_fishery_catch$species != spp[i], ] <- 0
+          mat <- mat[, colSums(abs(mat)) > 0, drop = FALSE]
+          if(!any(grepl("species", colnames(mat)))) colnames(mat) <- paste0("species", spp[i], ":", colnames(mat))
+          X_test_fishery <- cbind(X_test_fishery, mat)
+      }
+      self$data_list$X_test_fishery <- X_test_fishery
       colnames(self$data_list$X_test_fishery) <- gsub("species|net_type|fishery", "", colnames(self$data_list$X_test_fishery))
       colnames(self$data_list$X_test_fishery) <- gsub(":", "_", colnames(self$data_list$X_test_fishery))
 
