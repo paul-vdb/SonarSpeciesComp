@@ -175,7 +175,7 @@ plot_test_fishery <- function(self, includePrior = TRUE){
     plot_h <- ggplot(data = test_catch, aes(x = Date, y = diff, colour = fishery, shape = net_type)) + 
       geom_point(size = 2) + 
       theme_bw() + 
-      facet_wrap(~species) +
+      facet_wrap(~species, scale = "free_y") +
       # ggtitle( paste0("Test Fishery: ", self$est_date) ) +
       xlab("") + ylab("CPUE - Nq") + 
       geom_hline(yintercept = 0, col = 'red', linetype = 2)# + 
