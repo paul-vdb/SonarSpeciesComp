@@ -162,7 +162,9 @@ plot_test_fishery <- function(self, includePrior = TRUE){
         priors$net_type <- "N/A"
         qinv_net_type <- "N/A"
       }
-
+      priors$net_type <- ifelse(grepl("_", priors$net_type), "N/A", priors$net_type)
+      qinv_net_type <- ifelse(grepl("_", qinv_net_type), "N/A", qinv_net_type)
+        
       p_prior <- ggplot(priors, aes(x = x, y = y)) + 
         geom_line(aes(colour = fishery, linetype = net_type), linewidth = 0.8) + 
         theme_bw() + 
