@@ -228,13 +228,15 @@ speciesCompModel <- R6::R6Class("SpeciesCompModel",
           mat <- model.matrix(form, data = self$data_list$test_fishery_catch)
           mat[self$data_list$test_fishery_catch$species != spp[i], ] <- 0
           mat <- mat[, colSums(abs(mat)) > 0, drop = FALSE]
+          colnames(mat) <- gsub("\\(Intercept\\)", "", colnames(mat))
           if(!any(grepl("species", colnames(mat)))) colnames(mat) <- paste0("species", spp[i], ":", colnames(mat))
           X_test_fishery <- cbind(X_test_fishery, mat)
       }
       self$data_list$X_test_fishery <- X_test_fishery
       colnames(self$data_list$X_test_fishery) <- gsub("species|net_type|fishery", "", colnames(self$data_list$X_test_fishery))
       colnames(self$data_list$X_test_fishery) <- gsub(":", "_", colnames(self$data_list$X_test_fishery))
-
+      colnames(self$data_list$X_test_fishery) <- gsub("_$", "", colnames(self$data_list$X_test_fishery))
+      
       set_length_adjustment(self, formula_lengths)
       set_model_proportions(self, formula_proportions)
       set_model_parameters(self, fixed_parameters, fixed_values, initial_values, delta_mu_bounds, delta_sd_bounds)      
