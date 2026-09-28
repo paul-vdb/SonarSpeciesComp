@@ -344,7 +344,7 @@ set_priors <- function(self, priors = list(), includeJacobian = TRUE){
   self$prior_distributions <- list()
     
   self$prior_distributions$dlog_qinv <- addPrior(priors$qinv, \(x){log(abs(x))}, includeJacobian & !is.null(priors$qinv))
-  self$prior_distributions$dlog_sigma <- addPrior(priors$sigma, \(x){log(abs(x))}, includeJacobian & !is.null(priors$sigma))
+  self$prior_distributions$dlog_sigma <- addPrior(priors[["sigma"]], \(x){log(abs(x))}, includeJacobian & !is.null(priors[["sigma"]]))
   self$prior_distributions$dlog_sigma0 <- addPrior(priors$sigma0,\(x){log(abs(x))}, includeJacobian & !is.null(priors$sigma0))
   self$prior_distributions$dlogit_delta_mu <- addPrior(priors$delta_mu, logDetJac_logitInterval, includeJacobian & !is.null(priors$delta_mu))
   self$prior_distributions$dlogit_delta_sd <- addPrior(priors$delta_sd, logDetJac_logitInterval, includeJacobian & !is.null(priors$delta_sd))
